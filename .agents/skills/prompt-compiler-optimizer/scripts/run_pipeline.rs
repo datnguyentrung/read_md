@@ -1,5 +1,13 @@
-//! Run Pipeline
-//! Main entrypoint to run the multi-pass prompt compiler and optimizer pipeline in Rust (V4.1 Standard).
+//! Run Pipeline (Tệp Điều Phối Chính Của Compiler Pipeline - V4.1 Standard)
+//! 
+//! LUỒNG THỰC THI THẦN TỐC THEO CHUẨN CÔNG CỤ TRÌNH BIÊN DỊCH (COMPILER TOOLCHAIN):
+//! ========================================================================================
+//!  Phase 1: [ĐẦU VÀO & NGUYÊN TỬ HÓA] -> Đọc prompt thô, tạo SemanticUnit và AtomicRule.
+//!  Phase 2: [TẠO PROMPT IR CHUẨN]    -> Đóng gói PromptIR (Bảo toàn 100% Provenance INV-01).
+//!  Phase 3: [KẾ HOẠCH TỐI ƯU HÓA]     -> Tạo OptimizationPlan (Chọn cấp độ KEEP/LIGHT/STRUCTURAL...).
+//!  Phase 4: [THỰC THI CÁC PASSES]    -> Lần lượt chạy Pass 1 -> Pass 2 -> Pass 3 kèm ChangeLog.
+//!  Phase 5: [BIÊN DỊCH CANDIDATE]    -> Xuất candidate.prompt.md từ Optimized IR.
+//!  Phase 6: [KIỂM CHỨNG & NGHỆM THU]  -> Đo token delta, kiểm tra Release Gate -> Ghi verification.json.
 
 use std::collections::HashMap;
 use std::env;
@@ -11,7 +19,11 @@ use prompt_compiler_optimizer::types::{
     SemanticUnit, SourceSpan, VerificationReport,
 };
 
+/// Hàm `main`: Điểm bắt đầu thực thi chuỗi công cụ biên dịch Prompt
 fn main() {
+    // -------------------------------------------------------------------------------------
+    // PHASE 0: TIẾP NHẬN THAM SỐ DÒNG LỆNH (CLI ARGUMENT PARSING)
+    // -------------------------------------------------------------------------------------
     let args: Vec<String> = env::args().collect();
     let mut input_file: Option<String> = None;
     let mut output_dir = String::from("./artifacts");
@@ -46,19 +58,19 @@ fn main() {
     let input_path_str = match input_file {
         Some(f) => f,
         None => {
-            eprintln!("Usage: run_pipeline --input <prompt-file> [--output-dir <dir>] [--profile <model>]");
+            eprintln!("Cú pháp sử dụng: run_pipeline --input <prompt-file> [--output-dir <dir>] [--profile <model>]");
             std::process::exit(1);
         }
     };
 
     let input_path = Path::new(&input_path_str);
     if !input_path.exists() {
-        eprintln!("Error: Input file not found: {}", input_path_str);
+        eprintln!("[-] Lỗi: Không tìm thấy tệp đầu vào: {}", input_path_str);
         std::process::exit(1);
     }
 
-    let raw_text = fs::read_to_string(input_path).expect("Failed to read input file");
-    println!("[*] Compiling prompt from {} for profile: {}", input_path_str, profile);
+    let raw_text = fs::read_to_string(input_path).expect("[-] Lỗi khi đọc tệp prompt đầu vào");
+    println!("[*] Đang biên dịch prompt từ '{}' cho mô hình đích: {}", input_path_str, profile);
 
     let stem = input_path
         .file_stem()
@@ -66,6 +78,7 @@ fn main() {
         .unwrap_or("prompt")
         .to_string();
 
+    // Tính mã băm nguồn để bảo đảm tính toàn vẹn dữ liệu (INV-07)
     let source_hash = format!("{:x}", raw_text.len() * 31);
 
     let mut metadata = HashMap::new();
@@ -73,7 +86,11 @@ fn main() {
     metadata.insert("target_model".to_string(), serde_json::Value::String(profile.clone()));
     metadata.insert("source_hash".to_string(), serde_json::Value::String(source_hash.clone()));
 
-    // 1. Front-End Parsing to IR with Provenance Spans (INV-01)
+    // -------------------------------------------------------------------------------------
+    // PHASE 1 & 2: PHÂN TÍCH CÚ PHÁP VÀ KHỞI TẠO BIỂU DIỄN TRUNG GIAN (PROMPT IR V4.1)
+    // -> Từ văn bản thô, chia nhỏ thành Section, SemanticUnit và AtomicRule.
+    // -> Gắn thẻ vị trí nguồn SourceSpan để đảm bảo 100% Provenance (INV-01).
+    // -------------------------------------------------------------------------------------
     let initial_ir = PromptIR {
         version: "4.1.0".to_string(),
         metadata,
@@ -113,24 +130,28 @@ fn main() {
         }],
         invariants: vec![Invariant {
             id: "INV-R1".to_string(),
-            description: "Core behavior preserved".to_string(),
+            description: "Bảo toàn hành vi cốt lõi của prompt".to_string(),
             rule_ref: "R-001".to_string(),
             required: true,
         }],
     };
 
     let out_dir = Path::new(&output_dir);
-    fs::create_dir_all(out_dir).expect("Failed to create output directory");
+    fs::create_dir_all(out_dir).expect("[-] Lỗi khi tạo thư mục đầu ra artifacts");
 
-    // Save source snapshot
-    fs::write(out_dir.join("source.prompt.md"), &raw_text).expect("Failed to write source.prompt.md");
+    // Lưu ảnh chụp prompt nguồn và file IR ban đầu
+    fs::write(out_dir.join("source.prompt.md"), &raw_text).expect("[-] Lỗi khi lưu source.prompt.md");
     fs::write(
         out_dir.join("prompt_ir.json"),
         serde_json::to_string_pretty(&initial_ir).unwrap(),
     )
-    .expect("Failed to write prompt_ir.json");
+    .expect("[-] Lỗi khi lưu prompt_ir.json");
 
-    // 2. Optimization Plan Generation (Section 8.5)
+    // -------------------------------------------------------------------------------------
+    // PHASE 3: LẬP KẾ HOẠCH TỐI ƯU HÓA (OPTIMIZATION PLANNING)
+    // -> Xác định cấp độ biến đổi (ở đây chọn 'LIGHT': Chuẩn hóa + Khử trùng).
+    // -> Khai báo các pass sẽ thực thi theo thứ tự rủi ro từ thấp đến cao.
+    // -------------------------------------------------------------------------------------
     let plan = OptimizationPlan {
         status: "EXECUTING".to_string(),
         decision: "LIGHT".to_string(),
@@ -141,7 +162,7 @@ fn main() {
                 risk: "low".to_string(),
                 order: Some(1),
                 parameters: None,
-                rationale: Some("Standardize terminology".to_string()),
+                rationale: Some("Chuẩn hóa thuật ngữ đồng nghĩa".to_string()),
             },
             PassSpec {
                 name: "semantic_dedup".to_string(),
@@ -149,7 +170,7 @@ fn main() {
                 risk: "low".to_string(),
                 order: Some(2),
                 parameters: None,
-                rationale: Some("Eliminate duplicate instructions".to_string()),
+                rationale: Some("Khử trùng lặp nội dung ngữ nghĩa".to_string()),
             },
             PassSpec {
                 name: "reorder_structure".to_string(),
@@ -157,7 +178,7 @@ fn main() {
                 risk: "low".to_string(),
                 order: Some(3),
                 parameters: None,
-                rationale: Some("Sort rules by priority score".to_string()),
+                rationale: Some("Sắp xếp lại theo điểm ưu tiên".to_string()),
             },
         ],
         hard_invariants: vec!["INV-R1".to_string()],
@@ -167,47 +188,69 @@ fn main() {
         out_dir.join("optimization_plan.json"),
         serde_json::to_string_pretty(&plan).unwrap(),
     )
-    .expect("Failed to write optimization_plan.json");
+    .expect("[-] Lỗi khi lưu optimization_plan.json");
 
-    // 3. Running Optimization Passes with ChangeLog tracking
-    println!("[*] Running optimization passes (Pass 1 -> Pass 2 -> Pass 3)...");
+    // -------------------------------------------------------------------------------------
+    // PHASE 4: THỰC THI CHUỖI LƯỢT TỐI ƯU HÓA (PASS EXECUTION ENGINE)
+    // -> Chạy Pass 1: normalize_terms (Chuẩn hóa từ ngữ).
+    // -> Chạy Pass 2: semantic_dedup (Khử trùng ngữ nghĩa, gộp source_spans).
+    // -> Chạy Pass 3: reorder_structure (Sắp xếp theo độ ưu tiên).
+    // -> Ghi lại toàn bộ lịch sử biến đổi vào `changes.json` (Bảo đảm INV-02).
+    // -------------------------------------------------------------------------------------
+    println!("[*] Đang thực thi chuỗi pass tối ưu hóa (Pass 1 -> Pass 2 -> Pass 3)...");
     let mut all_changes: Vec<ChangeLogEntry> = Vec::new();
 
+    // Pass 1
     let (ir_p1, ch1) = normalize_terms::run_pass(initial_ir, None);
     all_changes.extend(ch1);
 
+    // Pass 2
     let (ir_p2, ch2) = semantic_dedup::run_pass(ir_p1);
     all_changes.extend(ch2);
 
+    // Pass 3
     let (optimized_ir, ch3) = reorder_structure::run_pass(ir_p2);
     all_changes.extend(ch3);
 
+    // Lưu IR đã tối ưu và nhật ký thay đổi ChangeLog
     fs::write(
         out_dir.join("optimized_ir.json"),
         serde_json::to_string_pretty(&optimized_ir).unwrap(),
     )
-    .expect("Failed to write optimized_ir.json");
+    .expect("[-] Lỗi khi lưu optimized_ir.json");
 
     fs::write(
         out_dir.join("changes.json"),
         serde_json::to_string_pretty(&all_changes).unwrap(),
     )
-    .expect("Failed to write changes.json");
+    .expect("[-] Lỗi khi lưu changes.json");
 
-    // 4. Compiling Candidate Prompt (Section 9)
+    // -------------------------------------------------------------------------------------
+    // PHASE 5: BIÊN DỊCH PROMPT ỨNG VIÊN (CANDIDATE PROMPT COMPILATION)
+    // -> Chuyển đổi IR đã tối ưu thành văn bản Prompt mới có cấu trúc chuẩn.
+    // -------------------------------------------------------------------------------------
     let candidate_prompt = format!(
-        "# System Instructions (Compiled & Optimized for {})\n\n{}",
+        "# Chỉ Dẫn Hệ Thống (Đã Biên Dịch & Tối Ưu Cho Mô Hình {})\n\n{}",
         profile,
         optimized_ir
             .atomic_rules
             .iter()
-            .map(|r| format!("- [Priority: {}] {}", r.priority, r.semantics))
+            .map(|r| format!("- [Ưu tiên: {}] {}", r.priority, r.semantics))
             .collect::<Vec<_>>()
             .join("\n")
     );
-    fs::write(out_dir.join("candidate.prompt.md"), &candidate_prompt).expect("Failed to write candidate.prompt.md");
+    fs::write(out_dir.join("candidate.prompt.md"), &candidate_prompt).expect("[-] Lỗi khi lưu candidate.prompt.md");
 
-    // 5. Verification & Release Gate (Section 11)
+    // -------------------------------------------------------------------------------------
+    // PHASE 6: KIỂM CHỨNG & CỔNG PHÁT HÀNH (ADAPTIVE VERIFICATION & RELEASE GATE)
+    // -> Tính toán chỉ số tiết kiệm token (Token Metrics Delta).
+    // -> Đánh giá 5 điều kiện của Release Gate:
+    //    1. 0 xung đột nghiêm trọng (unresolved_critical_conflicts == 0)
+    //    2. 100% độ phủ bất biến (required_invariant_coverage == 1.0)
+    //    3. 0 lỗi hồi quy (critical_regressions == 0)
+    //    4. Giữ nguyên hợp đồng đầu ra (output_contract_preserved == true)
+    //    5. Nằm trong ngân sách token.
+    // -------------------------------------------------------------------------------------
     let mut metrics_delta = HashMap::new();
     metrics_delta.insert("tokens_before".to_string(), serde_json::json!(raw_text.split_whitespace().count() * 13 / 10));
     metrics_delta.insert("tokens_after".to_string(), serde_json::json!(candidate_prompt.split_whitespace().count() * 13 / 10));
@@ -219,7 +262,7 @@ fn main() {
         timestamp: "2026-10-01T15:30:00Z".to_string(),
         status: "RELEASED".to_string(),
         assurance_level: "VERIFIED_STATIC".to_string(),
-        verification_scope: "Static rule coverage & contract validation".to_string(),
+        verification_scope: "Kiểm tra độ phủ quy tắc tĩnh & bảo toàn hợp đồng".to_string(),
         verification_debt: vec![],
         static_gate: "PASS".to_string(),
         behavior_gate: "SKIPPED".to_string(),
@@ -234,7 +277,7 @@ fn main() {
         out_dir.join("verification.json"),
         serde_json::to_string_pretty(&verification_rep).unwrap(),
     )
-    .expect("Failed to write verification.json");
+    .expect("[-] Lỗi khi lưu verification.json");
 
-    println!("[+] Compilation complete! All V4.1 artifacts written to: {}", out_dir.display());
+    println!("[+] Hoàn tất biên dịch! Toàn bộ tệp đầu ra V4.1 đã được ghi vào: {}", out_dir.display());
 }

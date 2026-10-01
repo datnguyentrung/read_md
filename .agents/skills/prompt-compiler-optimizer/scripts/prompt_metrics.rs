@@ -1,5 +1,9 @@
-//! Prompt Metrics
-//! Calculates token length estimates, line counts, and word counts in Rust.
+//! Prompt Metrics (Công Cụ Đo Lường Chỉ Số Token V4.1)
+//! 
+//! THUỘC PHASE 6: ĐO LƯỜNG VÀ CHẤM ĐIỂM (METRICS & AUDIT DELTA)
+//! ========================================================================================
+//! Tác dụng: Tính toán chính xác số dòng, số từ và số lượng token ước tính của văn bản prompt.
+//!           Giúp đo lường tỷ lệ giảm token (% token reduction) giữa prompt gốc và candidate prompt.
 
 use std::env;
 use std::fs;
@@ -11,9 +15,11 @@ struct Metrics {
     estimated_tokens: usize,
 }
 
+/// Hàm `calculate_metrics`: Phân tích thống kê dung lượng prompt
 fn calculate_metrics(text: &str) -> Metrics {
     let lines = text.lines().count();
     let words = text.split_whitespace().count();
+    // Ước tính hệ số token 1.3 cho tiếng Anh / code
     let estimated_tokens = (words as f64 * 1.3) as usize;
 
     Metrics {
@@ -23,6 +29,7 @@ fn calculate_metrics(text: &str) -> Metrics {
     }
 }
 
+/// Điểm bắt đầu công cụ CLI prompt_metrics
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut file_opt: Option<String> = None;
@@ -39,7 +46,7 @@ fn main() {
     let file_str = match file_opt {
         Some(f) => f,
         None => {
-            eprintln!("Usage: prompt_metrics --file <prompt-file>");
+            eprintln!("Cú pháp: prompt_metrics --file <prompt-file>");
             std::process::exit(1);
         }
     };
@@ -47,13 +54,13 @@ fn main() {
     match fs::read_to_string(Path::new(&file_str)) {
         Ok(content) => {
             let m = calculate_metrics(&content);
-            println!("[Metrics for {}]", file_str);
-            println!("  lines: {}", m.lines);
-            println!("  words: {}", m.words);
-            println!("  estimated_tokens: {}", m.estimated_tokens);
+            println!("[Chỉ số đo lường cho tệp '{}']", file_str);
+            println!("  Số dòng (lines): {}", m.lines);
+            println!("  Số từ (words): {}", m.words);
+            println!("  Ước tính token (estimated_tokens): {}", m.estimated_tokens);
         }
         Err(e) => {
-            eprintln!("Error reading file: {}", e);
+            eprintln!("[-] Lỗi khi đọc tệp: {}", e);
             std::process::exit(1);
         }
     }

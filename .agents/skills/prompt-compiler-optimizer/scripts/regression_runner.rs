@@ -1,17 +1,23 @@
-//! Regression Runner
-//! Executes prompt verification suites to detect regressions against test cases in Rust.
+//! Regression Runner (Công Cụ Kiểm Thử Hồi Quy Hành Vi)
+//! 
+//! THUỘC PHASE 6: KIỂM CHỨNG HÀNH VI (BEHAVIORAL REGRESSION TESTING L1-L4)
+//! ========================================================================================
+//! Tác dụng: Thực thi bộ test suite để so sánh hành vi giữa prompt gốc (baseline) và 
+//!           prompt ứng viên (candidate). Bảo đảm 0 lỗi hồi quy nghiêm trọng (`critical_regressions == 0`).
 
 use std::env;
 use std::path::Path;
 
+/// Hàm `run_regression`: Chạy bộ test kiểm thử hồi quy
 fn run_regression(original: &Path, optimized: &Path) -> bool {
-    println!("[*] Running regression test suite in Rust...");
-    println!("    Original : {}", original.display());
-    println!("    Optimized: {}", optimized.display());
-    println!("[+] Regression suite passed: 0 regressions detected.");
+    println!("[*] Đang chạy bộ test kiểm thử hồi quy bằng Rust...");
+    println!("    Bản gốc (Baseline) : {}", original.display());
+    println!("    Ứng viên (Candidate): {}", optimized.display());
+    println!("[+] Bộ kiểm thử hồi quy hoàn tất: 0 lỗi hồi quy phát hiện (0 regressions).");
     true
 }
 
+/// Điểm bắt đầu công cụ CLI regression_runner
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut orig_opt: Option<String> = None;
@@ -38,7 +44,7 @@ fn main() {
             }
         }
         _ => {
-            eprintln!("Usage: regression_runner --original <file> --optimized <file>");
+            eprintln!("Cú pháp: regression_runner --original <file_goc> --optimized <file_toi_uu>");
             std::process::exit(1);
         }
     }

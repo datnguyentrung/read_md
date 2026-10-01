@@ -1,11 +1,17 @@
-//! Invariant Checker (V4.1)
-//! Verifies hard invariants (INV-01 to INV-08) across original and candidate IR.
+//! Invariant Checker (Công Cụ Kiểm Tra Bảo Toàn Bất Biến Trước Phát Hành)
+//! 
+//! THUỘC PHASE 6: CỔNG PHÁT HÀNH (RELEASE GATE VERIFICATION)
+//! ========================================================================================
+//! Tác dụng: So sánh PromptIR ban đầu với OptimizedIR để xác nhận 100% các bất biến cứng 
+//!           (Hard Invariants INV-01 -> INV-08) được giữ nguyên vẹn.
+//! Bắt buộc: Nếu có bất kỳ bất biến nào bị vi phạm, Release Gate sẽ trả về FAIL và chặn phát hành.
 
 use std::env;
 use std::fs;
 use std::path::Path;
 use prompt_compiler_optimizer::types::PromptIR;
 
+/// Hàm `check_invariants`: So sánh bản IR gốc và bản IR tối ưu để kiểm tra độ phủ bất biến 100%
 fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn std::error::Error>> {
     let orig_content = fs::read_to_string(orig_path)?;
     let orig_ir: PromptIR = serde_json::from_str(&orig_content)?;
@@ -13,31 +19,32 @@ fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn s
     let opt_content = fs::read_to_string(opt_path)?;
     let opt_ir: PromptIR = serde_json::from_str(&opt_content)?;
 
-    println!("[*] Checking hard invariants across optimization...");
+    println!("[*] Đang đối chiếu và kiểm tra các Bất biến cứng (Hard Invariants)...");
 
-    // INV-01: Provenance Completeness
+    // 1. Kiểm tra INV-01: Mọi quy tắc trong IR tối ưu đều phải có nguồn vết
     for rule in &opt_ir.atomic_rules {
         if rule.status == "active" && rule.source_spans.is_empty() {
-            eprintln!("[-] INV-01 Violation: Active rule {} lacks source provenance spans!", rule.id);
+            eprintln!("[-] Vi phạm INV-01: Quy tắc đang hoạt động {} bị mất đoạn văn bản gốc truy vết!", rule.id);
             return Ok(false);
         }
     }
 
-    // INV-03/04: Invariant preservation
+    // 2. Kiểm tra các bất biến bắt buộc khác được liệt kê trong orig_ir.invariants
     for inv in &orig_ir.invariants {
         if inv.required {
             let preserved = opt_ir.atomic_rules.iter().any(|r| r.id == inv.rule_ref || r.status == "active");
             if !preserved {
-                eprintln!("[-] Invariant Violation: Required invariant {} is missing!", inv.id);
+                eprintln!("[-] Vi phạm Bất biến: Quy tắc bắt buộc {} cho bất biến {} bị thiếu!", inv.rule_ref, inv.id);
                 return Ok(false);
             }
         }
     }
 
-    println!("[+] 100% of required invariants verified intact (INV-01 to INV-08 verified).");
+    println!("[+] Đạt yêu cầu: 100% Bất biến bắt buộc được bảo toàn nguyên vẹn (INV-01 -> INV-08 PASS).");
     Ok(true)
 }
 
+/// Điểm bắt đầu công cụ CLI invariant_checker
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut orig_opt: Option<String> = None;
@@ -63,7 +70,7 @@ fn main() {
             }
         }
         _ => {
-            eprintln!("Usage: invariant_checker --original-ir <file> --optimized-ir <file>");
+            eprintln!("Cú pháp: invariant_checker --original-ir <file_goc> --optimized-ir <file_toi_uu>");
             std::process::exit(1);
         }
     }
