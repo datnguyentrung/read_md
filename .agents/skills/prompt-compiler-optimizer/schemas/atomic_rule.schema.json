@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AtomicRule",
+  "type": "object",
+  "required": ["id", "type", "description", "priority"],
+  "properties": {
+    "id": { "type": "string" },
+    "section_id": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["constraint", "behavior", "format", "fallback", "invariant", "definition"]
+    },
+    "description": { "type": "string" },
+    "priority": {
+      "type": "string",
+      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+    },
+    "conditions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

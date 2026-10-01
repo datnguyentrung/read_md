@@ -1,0 +1,585 @@
+- vars:
+    messages:
+      - role: user
+        content: |
+          Mình muốn mở thẻ tín dụng hoàn tiền cao cho ăn uống, phí thường niên thấp thôi, hạn mức tầm 200 triệu
+
+          account-context::{"userId": "6370312", "name": "TRAN THI THU HUONG", "phoneNo": "0941920229", "email": "humi.tran@gmail.com", "dob": "21/10/1994", "gender": "FEMALE", "userName": "0941920229", "username": "0941920229", "srvcPcCd": "ADVANCE1TY", "sectorCode": "1740", "partnerCode": "CHATWOOT", "conversation_id": "09bbcb1c-15b7-4cd8-81a7-0f371ac0caf5", "maritalStatus": "Độc thân", "education": "Đại học", "currentJob": "Làm việc toàn thời gian", "jobPosition": "Chuyên viên / Nhân viên", "workDuration": "1 – 3 năm", "industries": ["Công nghệ thông tin / Phần mềm"], "hasChildren": "Chưa có", "monthlyIncome": "25000000", "bankingPurposes": ["Nhận lương", "Chuyển tiền", "Chi tiêu hằng ngày"], "isHasClipboard": false, "style": "concise", "modelFlag": "0.9", "is_ui_flow": true, "enable_handoff": false, "id_typ_no": "034xx4000023", "trace_id": "4191c68b47fa4abc93ce077e7b22e992", "session_id": "09bbcb1c-15b7-4cd8-81a7-0f371ac0caf5", "user_ud": "6370312"}
+      - role: user
+        content: |
+          For context:
+          [root_routing_agent] called tool `transfer_to_agent` with parameters: {'agent_name': 'CARD_AGENT'}
+      - role: user
+        content: |
+          For context:
+          [root_routing_agent] `transfer_to_agent` tool returned result: {'result': None}
+    metadata:
+      trace_id: 4191c68b47fa4abc93ce077e7b22e992
+      source: Langfuse
+      adk_agent_name: card_agent_tool
+      model_langfuse: null
+    output_langfuse:
+      model_version: litellm_proxy/gemini-3.6-flash
+      content:
+        parts:
+          - function_call:
+              id: call_58619__thought__AY89a19MBFPZT3GXm3aqSFtMbbGS1wjn6TA08cu6/uLmwPmd29bqhPTBzmRLmv+pHUKDzRZ5GZjx3xCDfPhsXDzvoK2I6UF3StYzqmvz
+              args:
+                query: thẻ tín dụng hoàn tiền ăn uống phí thường niên hạn mức
+              name: search_banking_knowledge
+            thought_signature: AY89a19MBFPZT3GXm3aqSFtMbbGS1wjn6TA08cu6_uLmwPmd29bqhPTBzmRLmv-pHUKDzRZ5GZjx3xCDfPhsXDzvoK2I6UF3StYzqmvz
+        role: model
+      partial: false
+      finish_reason: STOP
+      usage_metadata:
+        cached_content_token_count: 0
+        candidates_token_count: 30
+        prompt_token_count: 7411
+        total_token_count: 7441
+    tools:
+      - type: function
+        function:
+          name: get_card_list
+          description: |
+            Truy vấn danh sách sản phẩm thẻ của khách hàng
+
+            Descriptions:
+              Truy vấn danh sách sản phẩm thẻ mà khách hàng đang sở hữu tại ngân hàng, trừ các thẻ đã đóng và các thẻ hết hạn.
+              API này trả về danh sách tất cả các thẻ gắn với mã khách hàng (CIF/CustomerID) cùng các thông tin chi tiết của từng thẻ.
+
+            Args:
+              customerId (str): The ID of the customer (can also be the userId).
+
+            Returns:
+              Dict:
+                status: status of the processing query list card
+                error: error message
+                data: A list of dictionaries, where each dictionary represents a card.
+          parameters:
+            properties:
+              customer_id:
+                type: string
+            required:
+              - customer_id
+            type: object
+      - type: function
+        function:
+          name: get_amount_info
+          description: |
+            Truy vấn thông tin thanh toán sao kê của thẻ tín dụng
+
+            Description:
+              Truy vấn thông tin chi tiết về thanh toán sao kê của một thẻ tín dụng cụ thể.
+              API này cho phép chatbot tra cứu các thông tin quan trọng liên quan đến sao kê hàng tháng, giúp khách hàng quản lý chi tiêu và thanh toán đúng hạn.
+
+            Args:
+              cardNo: "Id thẻ" của thẻ người dùng đang đề cập đến (trường Id thẻ)
+              masked: "Số thẻ masked" (Optional). Nếu không truyền, tool sẽ tự tra cứu.
+              name_product: "Tên sản phẩm thẻ" (Optional). Nếu không truyền, tool sẽ tự tra cứu.
+
+            Returns:
+              Dict:
+                status: status of the processing query ammount info
+                message: message process task
+                data: A list of dictionaries, where each dictionary represents a ammount info of card.
+          parameters:
+            properties:
+              cardNo:
+                type: string
+              masked:
+                nullable: true
+                type: string
+              name_product:
+                nullable: true
+                type: string
+            required:
+              - cardNo
+            type: object
+      - type: function
+        function:
+          name: get_card_usage_limit_package
+          description: |
+            Truy vấn thông tin **gói hạn mức** của thẻ (hạn mức chi tiêu & hạn mức thanh toán online) qua gRPC.
+
+            Description:
+              API gRPC dùng để lấy thông tin gói hạn mức của một thẻ theo ID thẻ (cardId/cardNo nội bộ).
+              Tool trả về 2 nhóm hạn mức:
+              - ``totalLimit``: Tổng hạn mức chi tiêu
+              - ``totalLimitOnline``: Tổng hạn mức chi tiêu online
+              (mỗi nhóm gồm ``maxAmount`` và ``maxSingleAmount``)
+
+              Lưu ý hiển thị:
+              - Nếu ``totalLimit.maxAmount`` hoặc ``totalLimitOnline.maxAmount`` có giá trị "0" thì hiển thị là **"Không giới hạn"**.
+
+            Args:
+              customerId (str): Mã khách hàng (CIF/CustomerID). Bắt buộc trùng với ``userId`` trong context (phân quyền).
+              cardNo (str): ID thẻ nội bộ. Lấy từ tool ``get_list_card`` (thường dùng chung giá trị với ``cardNo``).
+              cardType (str): Loại thẻ. Láy từ tool ``get_list_card`` (thường dùng chung giá trị với ``cardPrdCd``).
+              tool_context (ToolContext): Context do agent truyền vào (chứa ``userId`` để kiểm tra quyền).
+
+            Returns:
+              str: JSON string có dạng::
+
+                {
+                  "status": "END",
+                  "message": "ok" | "...",
+                  "error": "Unauthorized" | "Error" (nếu có),
+                  "data": {
+                    "totalLimit": {"maxAmount": "..." | "Không giới hạn", "maxSingleAmount": "..."},
+                    "totalLimitOnline": {"maxAmount": "..." | "Không giới hạn", "maxSingleAmount": "..."}
+                  }
+                }
+          parameters:
+            properties:
+              customerId:
+                type: string
+              cardNo:
+                type: string
+              cardType:
+                type: string
+            required:
+              - customerId
+              - cardNo
+              - cardType
+            type: object
+      - type: function
+        function:
+          name: get_card_transaction_history
+          description: |
+            Query card transaction history for a given customer/card.
+
+            This tool is used by the agent to retrieve transaction history for a specific card,
+            supporting use cases like checking spending history, reconciling transactions, or
+            investigating disputes.
+
+            Args:
+              customerId (str): Customer CIF identifier in host core system.
+              cardNo (str): Card number to search on. You must get cardNo from getList api, DO NOT use card number like 484803XXXXXX1959.
+              type (str): Card type used for search, must choose in list ['CARD'].
+              historyType (str): History search mode, must choose in list ['DATE_RANGE'].
+              historyNumber (str): Number of history items or search count parameter.
+              fromDate (str, optional): Start date must be a string in format ``dd/MM/yyyy``. If user do not provide, leave None. If None, will restore history of last 7 days from now.
+              toDate (str, optional): End date must be a string in format ``dd/MM/yyyy``. If user do not provide, leave None. If None, will restore history of last 7 days from now.
+              tool_context (ToolContext, optional): Execution context forwarded from the agent.
+              masked (str, optional): Số thẻ masked. Nếu không truyền sẽ tự tra cứu.
+              name_product (str, optional): Tên sản phẩm thẻ. Nếu không truyền sẽ tự tra cứu.
+
+            Returns:
+              Dict: A JSON-serializable dict with at least the following keys::
+
+                {
+                  "status": "END" | "ERROR",
+                  "error": "Success" | "Error" | "Unauthorized",
+                  "message": "Result description",
+                  "data": [... transaction history records ...]
+                }
+          parameters:
+            properties:
+              customerId:
+                type: string
+              cardNo:
+                type: string
+              type:
+                default: CARD
+                type: string
+              historyType:
+                default: DATE_RANGE
+                type: string
+              historyNumber:
+                default: 10
+                type: string
+              fromDate:
+                nullable: true
+                type: string
+              toDate:
+                nullable: true
+                type: string
+              masked:
+                nullable: true
+                type: string
+              name_product:
+                nullable: true
+                type: string
+            required:
+              - customerId
+              - cardNo
+            type: object
+      - type: function
+        function:
+          name: search_banking_knowledge
+          description: |
+            Tra cứu kiến thức chung về ngân hàng, quy trình, biểu phí, lãi suất, câu hỏi thường gặp (FAQ).
+            Tool này tìm kiếm trong cơ sở dữ liệu Vertex AI Discovery Engine của ngân hàng.
+
+            Args:
+              query (str): Câu hỏi hoặc từ khóa cần tra cứu.
+              page_size (int): Số lượng tài liệu tối đa trả về (mặc định: 3).
+              max_extractive_segment_count (int): Số đoạn khớp nhất được trích xuất mỗi tài liệu (mặc định: 3).
+              threshold (float): Ngưỡng relevance score tối thiểu để giữ lại segment (mặc định: 0.4).
+                - Tăng lên (vd: 0.6) → chặt hơn, ít đoạn hơn nhưng chính xác hơn.
+                - Giảm xuống (vd: 0.3) → lấy nhiều đoạn hơn, chấp nhận thêm nhiễu.
+
+            Returns:
+              str: Nội dung thông tin tìm thấy dạng văn bản.
+          parameters:
+            properties:
+              query:
+                type: string
+              page_size:
+                default: 3
+                type: integer
+              max_extractive_segment_count:
+                default: 3
+                type: integer
+              threshold:
+                default: 0.4
+                type: number
+            required:
+              - query
+            type: object
+      - type: function
+        function:
+          name: search_card_info_hierarchy
+          description: |
+            Tra cứu thông tin chi tiết về thẻ và các cấp cha của nó (phân loại thẻ).
+            Dùng khi cần biết về một loại thẻ cụ thể (vd: Wukong, Visa Hybrid, Thẻ tín dụng...), 
+            tính năng, ưu đãi và mối liên hệ của nó trong hệ thống thẻ MB.
+
+            Args:
+              card_name (str): Tên loại thẻ hoặc nhóm thẻ cần tra cứu.
+
+            Returns:
+              str: Thông tin chi tiết về thẻ và các cấp cha liên quan.
+          parameters:
+            properties:
+              card_name:
+                type: string
+            required:
+              - card_name
+            type: object
+      - type: function
+        function:
+          name: get_card_promotions
+          description: |
+            Truy vấn và join ưu đãi thẻ ngay trong một tool.
+
+            Description:
+              Tool tự gọi `get_card_list` để lấy danh sách thẻ của khách hàng,
+              sau đó gọi API gRPC lấy danh sách ưu đãi raw và join ưu đãi phù hợp
+              vào từng thẻ. Các promo không map được sẽ bị loại bỏ.
+
+            Args:
+              customerId (str): Mã khách hàng (CIF/CustomerID), có thể lấy từ query của user
+              hint (Any): Hint dùng để lọc ưu đãi hoặc lọc thẻ. Nếu câu hỏi chung chung thì truyền nội dung câu hỏi hoặc chuỗi rỗng.
+              cardType (str): Loại thẻ. Chỉ điền duy nhất 1 giá trị trong ["CREDIT", "DEBIT", "HYBRID"] hoặc để trống không cần điền nếu user không đề cập
+
+            Returns:
+              str: JSON string có dạng::
+
+                {
+                  "status": "END",
+                  "message": "ok" | "...",
+                  "error": "Unauthorized" | "Error" (nếu có),
+                  "data": {
+                    "Danh sách thẻ và ưu đãi phù hợp": [
+                      {
+                        "Số thẻ masked": "...",
+                        "Tên trên thẻ": "...",
+                        "Loại thẻ": "...",
+                        "Tên sản phẩm thẻ": "...",
+                        "Trạng thái thẻ": "...",
+                        "Hạn mức thẻ": "...",
+                        "Ưu đãi phù hợp": [ ... ]
+                      }
+                    ]
+                  }
+                }
+          parameters:
+            properties:
+              customerId:
+                type: string
+              hint: {}
+              cardType:
+                default: ''
+                type: string
+            required:
+              - customerId
+              - hint
+            type: object
+      - type: function
+        function:
+          name: change_card_status
+          description: |
+            Tool có nhiệm vụ thực hiện ĐÓNG THẺ, KHÓA THẺ, MỞ KHÓA THẺ cho người dùng.
+
+            Mục đích:
+            - Chỉ được gọi khi lớp orchestration đã xác nhận user có hint/intent về:
+              + `LOCK`  : khóa thẻ, đóng thẻ
+              + `UNLOCK`: mở khóa thẻ
+
+            Điều kiện bắt buộc trước khi gọi:
+              - Intent đã được phân loại chắc chắn là `LOCK` hoặc `UNLOCK`.
+              - Không gọi tool cho các câu hỏi không có hint/intent về đóng thẻ, khóa thẻ, mở khóa thẻ.
+
+            Notes:
+              - Nếu intent đóng thẻ, mở khóa thẻ, khóa thẻ kèm đại từ nhân xưng: GỌI tool change_card_status.
+              - Nếu không có thông tin danh sách thẻ trong lịch sử trò chuyện, thực hiện gọi tool get_card_list trước.
+              - Nếu intent đóng thẻ, mở khóa thẻ, khóa thẻ không rõ ràng, mơ hồ, nhập nhằng: KHÔNG gọi tool change_card_status.
+
+            Example:
+              - Action UNLOCK:
+                + Tôi muốn mở khóa thẻ
+                + Mở khóa thẻ để thanh toán online
+                + Sao thẻ không dùng được, mở giúp mình
+                + Cho mình dùng lại thẻ nhé
+                etc
+              - Action LOCK:
+                + Tôi muốn khóa thẻ
+                + Hình như thẻ mình bị lộ thông tin rồi
+                + Có người dùng thẻ mình mà không phải mình
+                + Mình làm mất thẻ rồi
+                + Không thấy thẻ đâu, khóa giúp mình trước
+                + Có ai đó đang thử thanh toán bằng thẻ mình
+                + Khóa thẻ để khỏi tiêu linh tinh
+                etc
+
+            Args:
+              - customer_id (str): Mã định danh khách hàng
+              - cardNos (list[str]) = []: danh sách cardNo (mỗi phần tử là `cardNo` hoặc `Id thẻ` của thẻ) của các thẻ mà người dùng muốn mở khóa thẻ hoặc khóa thẻ. Nếu không có thẻ phù hợp để giá trị default = []
+              - action (str): Hành động cần thực hiện, chỉ nhận `LOCK` hoặc `UNLOCK` dựa vào câu chat người dùng.
+
+            Returns:
+              str: JSON string chứa danh sách thẻ phù hợp với action.
+          parameters:
+            properties:
+              customer_id:
+                type: string
+              cardNos:
+                items:
+                  type: string
+                type: array
+              action:
+                enum:
+                  - LOCK
+                  - UNLOCK
+                type: string
+            required:
+              - customer_id
+              - cardNos
+              - action
+            type: object
+      - type: function
+        function:
+          name: search_user_memory_bank
+          description: |
+            Tra cứu các đặc điểm, sở thích hoặc nhu cầu đã được xác thực trong quá khứ của khách hàng từ Memory Bank.
+
+            Chỉ sử dụng khi cần nắm thông tin về thói quen, sở thích, kế hoạch tài chính hoặc rào cản cũ của khách hàng.
+
+            Args:
+              query: Từ khóa hoặc ngữ cảnh nhu cầu cần tìm lại (ví dụ: 'thẻ visa', 'vay mua nhà', 'hoàn tiền', 'chi phí').
+              topic: Chủ đề cần lọc nếu có (ví dụ: 'preference' cho sở thích, 'financial_plan' cho kế hoạch trả góp/vay vốn, 'product_state' cho sản phẩm quan tâm, 'objection' cho rào cản/từ chối).
+              domain: Nghiệp vụ liên quan cần lọc nếu có (ví dụ: 'card', 'loan', 'saving_account').
+              top_k: Số lượng fact liên quan nhất cần trả về (mặc định 5).
+              tool_context: Ngữ cảnh thực thi tool do framework ADK tự động inject.
+
+            Returns:
+              Danh sách các fact đặc điểm/nhu cầu liên quan được phân loại theo chủ đề, hoặc thông báo nếu chưa có lịch sử.
+          parameters:
+            properties:
+              query:
+                type: string
+              topic:
+                nullable: true
+                type: string
+              domain:
+                nullable: true
+                type: string
+              top_k:
+                default: 5
+                type: integer
+            required:
+              - query
+            type: object
+      - type: function
+        function:
+          name: load_product_sales_skill
+          description: |
+            Tải kịch bản kỹ năng tư vấn (Sales Skill / Pitch Playbook) động cho một sản phẩm cụ thể.
+
+            Kịch bản được quản lý tập trung và cập nhật liên tục trên Langfuse, sau đó được cache thành thư mục ADK skill chuẩn trên máy chủ và nạp qua `load_skill_from_dir`.
+
+            Agent gọi tool này khi phát hiện nhu cầu của khách hàng hoặc muốn tư vấn chuyên sâu về một sản phẩm, nhằm nhận các gợi ý mở đầu (hook), câu hỏi gợi mở nhu cầu, USP cốt lõi và hướng dẫn chốt sale mềm.
+
+            Args:
+              product_key: Mã định danh sản phẩm cần lấy kịch bản bán hàng (ví dụ: 'MB_VISA_INFINITE', 'SAVING_ACCUMULATION', 'LOAN_MORTGAGE', v.v.).
+              domain_name: Miền nghiệp vụ tuỳ chọn (ví dụ: 'card', 'saving_account', 'loan'). Nếu không truyền, tool sẽ tự trích xuất từ tool_context hoặc fallback 'generic'.
+              tool_context: Ngữ cảnh thực thi tool do Google ADK framework tự động truyền.
+
+            Returns:
+              Kịch bản bán hàng chi tiết (bước dẫn dắt, câu hỏi gợi mở, xử lý từ chối, lời mời chuyển đổi).
+          parameters:
+            properties:
+              product_key:
+                type: string
+              domain_name:
+                nullable: true
+                type: string
+            required:
+              - product_key
+            type: object
+    last_message: Mình muốn mở thẻ tín dụng hoàn tiền cao cho ăn uống, phí thường niên thấp thôi, hạn mức tầm 200 triệu
+    system_instruction: |
+      <system_prompt>
+        <role_and_persona>
+          <identity>
+            Bạn là Trợ lý điều phối (router) thông minh cho kênh hỗ trợ khách hàng của MBBank.
+          </identity>
+          <core_mission>
+            Nhiệm vụ chính của bạn là phân tích chính xác ý định của người dùng và điều phối (route) câu hỏi đến đúng (các) tool cần thiết để thu thập dữ liệu, bao gồm cả việc gọi nhiều tool song song khi cần thiết.
+          </core_mission>
+        </role_and_persona>
+
+        <tool_definitions>
+          <tool_group name="Personal Data API">
+            <tool name="get_card_list">
+              <description>Dùng khi người dùng hỏi về danh sách thẻ hoặc chi tiết một thẻ cụ thể (số thẻ, ngày hết hạn, loại thẻ, dư nợ...). Đây là tool nền tảng để lấy `cardNo`. LƯU Ý: Nếu người dùng hỏi CHI TIẾT một thẻ, hãy gọi kèm `get_card_usage_limit_package` (để lấy hạn mức giao dịch) và `get_card_promotions` (để lấy các ưu đãi hiện có) nếu dữ liệu này chưa có sẵn.</description>
+            </tool>
+            <tool name="get_amount_info">
+              <description>
+                - Dùng khi người dùng hỏi về TỔNG SỐ TIỀN cần thanh toán trong kỳ sao kê, ngày đến hạn thanh toán, hoặc số dư tối thiểu phải trả. KHÔNG dùng để xem danh sách giao dịch.
+                - BẮT BUỘC phải gọi tool `get_card_list` trước để lấy đủ thông tin. Bắt buộc thực hiện TUẦN TỰ: gọi `get_card_list` -> đợi kết quả -> gọi `get_amount_info`. TUYỆT ĐỐI KHÔNG gọi song song.
+              </description>
+            </tool>
+            <tool name="get_card_usage_limit_package">
+              <description>Dùng khi người dùng hỏi về các gói hạn mức chi tiêu hoặc hạn mức giao dịch online (tối đa/ngày, tối đa/lần) của một thẻ.</description>
+              <interpretation_rule>Nếu API trả về `maxAmount` hoặc `maxAmountOnlineCheck` = "0", hãy hiểu giá trị đó là "Không giới hạn".</interpretation_rule>
+            </tool>
+            <tool name="search_card_info_hierarchy">
+              <description>
+                - Dùng khi người dùng muốn XEM DANH SÁCH CÁC GIAO DỊCH thẻ (sao kê chi tiết thẻ), kiểm tra từng khoản chi tiêu, hoặc tra cứu giao dịch cụ thể trong một khoảng thời gian. Áp dụng cho các câu hỏi về lịch sử giao dịch thẻ, sao kê thẻ.
+                - BẮT BUỘC phải gọi tool `search_banking_knowledge` song song để lấy đủ thông tin.
+              </description>
+            </tool>
+            <tool name="get_card_promotions">
+              <description>Dùng khi người dùng hỏi về ưu đãi thẻ, các lợi ích khi sở hữu thẻ, có thể lọc loại thẻ credit/hybrid/debit bằng trường cardType.</description>
+            </tool>
+          </tool_group>
+
+          <tool_group name="Knowledge Base Search">
+            <tool name="search_card_product_info">
+              <description>
+                - Dùng khi câu hỏi nhắc đến TÊN SẢN PHẨM thẻ cụ thể hoặc NHÓM THẺ để hỏi về tính năng, ưu đãi, so sánh, hoặc phí. Tool sẽ tự động tìm kiếm thông tin theo phân cấp của thẻ.
+                - BẮT BUỘC phải gọi tool `search_banking_knowledge` song song để lấy đủ thông tin.
+              </description>
+              <examples>
+                <example>"Thẻ Visa Platinum có ưu đãi gì?" -> card_name="Visa Platinum"</example>
+                <example>"So sánh thẻ JCB và thẻ Priority." -> Gọi song song cho card_name="JCB" và card_name="Priority"</example>
+                <example>"Phí thường niên thẻ ghi nợ là bao nhiêu?" -> card_name="Thẻ ghi nợ"</example>
+              </examples>
+            </tool>
+            <tool name="search_banking_knowledge">
+              <description>Dùng cho các câu hỏi KIẾN THỨC CHUNG, quy trình, biểu phí chung, lãi suất, hoặc các định nghĩa không gắn liền với một sản phẩm thẻ cụ thể.</description>
+              <examples>
+                <example>"Lãi suất tiết kiệm hiện nay?"</example>
+                <example>"Làm thế nào để khóa thẻ?"</example>
+                <example>"Thẻ tín dụng là gì?"</example>
+              </examples>
+            </tool>
+          </tool_group>
+        </tool_definitions>
+
+        <disambiguation_rules>
+          <rule name="Phân biệt ý định 'Sao kê thẻ'">
+            <description>
+              Từ "sao kê" trong tiếng Việt mang hai nghĩa khác nhau. Hãy phân biệt rõ để chọn đúng tool:
+            </description>
+            <case intent="Xem danh sách giao dịch">
+              <signals>Người dùng dùng các cụm như: "xem sao kê", "sao kê tháng này/tháng trước", "liệt kê giao dịch", "tôi đã tiêu những gì", "kiểm tra chi tiêu", "giao dịch gần đây"</signals>
+              <tool>get_card_transaction_history</tool>
+            </case>
+            <case intent="Hỏi số tiền phải đóng">
+              <signals>Người dùng dùng các cụm như: "phải đóng bao nhiêu", "số tiền thanh toán", "kỳ này đóng tiền", "ngày đến hạn", "sao kê bao nhiêu tiền", "dư nợ phải trả"</signals>
+              <tool>get_amount_info</tool>
+            </case>
+            <note>
+              Nếu câu hỏi vẫn còn mơ hồ (ví dụ chỉ nói "sao kê thẻ" mà không có thêm ngữ cảnh), ưu tiên gọi `get_card_transaction_history` vì đây là ý định phổ biến hơn khi người dùng nói "xem sao kê".
+            </note>
+          </rule>
+        </disambiguation_rules>
+
+        <query_construction>
+          Áp dụng khi build `query` (search_banking_knowledge) và `card_name` (search_card_product_info). Query sai là nguồn hallucination lớn nhất ở downstream.
+          1. Keywords-only: chỉ giữ từ khóa định danh/nghiệp vụ; loại bỏ từ đệm, đại từ, từ để hỏi, cảm thán ("là gì", "thế nào", "có được không", "bạn ơi", "cho mình hỏi", "tôi muốn biết"). TUYỆT ĐỐI không copy nguyên câu dài của người dùng.
+          2. Giải tỉnh lược & đồng tham chiếu từ lịch sử: thay đại từ/tỉnh lược bằng chủ thể thật ("phí của nó" → "phí thường niên [tên thẻ đang xét]").
+          3. Active Card Product grounding (BẮT BUỘC): xác định loại/tên thẻ đang thảo luận trong phiên từ TOÀN BỘ lịch sử và gắn vào `query`/`card_name`, kể cả khi câu hiện tại không nhắc lại tên thẻ.
+             - Câu hiện tại nêu loại/tên thẻ khác → cập nhật Active Card Product ngay theo domain mới.
+             - Câu hiện tại không nêu → vẫn gắn Active Card Product cũ (lý do: "khóa/mở thẻ", "gia hạn", "phí thường niên", "hạn mức" tồn tại ở cả thẻ tín dụng và ghi nợ với nội dung khác nhau).
+             - Chưa từng có Active Card Product và câu hỏi áp dụng cho nhiều loại thẻ → giữ query ở mức CHUNG, không tự đoán một loại thẻ cụ thể.
+          4. Cấm bơm giả thuyết chưa xác minh: chỉ đưa vào query hành động/khái niệm người dùng thực sự nêu; không thêm cơ chế/thuộc tính chưa xác minh. Vd: "ủy quyền tất toán được không" → query "tất toán sổ tiết kiệm", KHÔNG "tất toán qua ủy quyền".
+          5. Chuẩn hóa thuật ngữ & sửa lỗi chính tả về dạng nghiệp vụ chuẩn ("tiền phạt trễ" → "phí phạt chậm thanh toán thẻ tín dụng"; chuẩn hóa tên sản phẩm sai chính tả).
+          6. Đa ý & so sánh: tách thành nhiều tool call, mỗi sản phẩm/chủ đề một query riêng; KHÔNG gộp hai sản phẩm vào một query.
+          7. Phân luồng nguồn: ý định dữ liệu cá nhân → Personal Data API (không dùng search); định nghĩa/giới thiệu/kiến thức chung → chỉ Knowledge Base Search.
+          8. `search_card_product_info`: map `card_name` về tên sản phẩm/nhóm thẻ chuẩn; thêm `cardType` (credit/hybrid/debit) khi câu hỏi nêu rõ loại.
+        </query_construction>
+
+        <tool_calling_rules>
+          <rule name="Sequential Dependency (2 lượt, bắt buộc)">
+            Các detail tool (`get_amount_info`, `get_card_transaction_history`, `get_card_usage_limit_package`, `get_card_promotions` khi gắn thẻ cụ thể) đều cần `cardNo` từ `get_card_list`.
+            - Nếu `cardNo` CHƯA có trong ngữ cảnh → LƯỢT 1 chỉ gọi một mình `get_card_list`. TUYỆT ĐỐI không gọi song song `get_card_list` với bất kỳ detail tool nào.
+            - Sau khi có kết quả `get_card_list` → LƯỢT 2 gọi các detail tool cần thiết (được phép song song GIỮA các detail tool với nhau).
+            - Nếu `cardNo` ĐÃ có sẵn trong ngữ cảnh → gọi thẳng detail tool, bỏ qua `get_card_list`.
+            <example name="Sai">"Kiểm tra sao kê thẻ" → get_card_list() + get_card_transaction_history() cùng lượt (get_card_transaction_history không có cardNo).</example>
+            <example name="Đúng">Lượt 1: get_card_list(). Lượt 2 (đã có cardNo): get_card_transaction_history().</example>
+          </rule>
+
+          <rule name="Product Info vs Personal Data Routing (Phân biệt hỏi sản phẩm vs hỏi cá nhân - CRITICAL)">
+            <description>
+              Khi người dùng hỏi thông tin THAM KHẢO về một sản phẩm thẻ hoặc chính sách chung mà họ KHÔNG/CHƯA chắc sở hữu (ví dụ: "hạn mức thẻ JCB Hi Collection là bao nhiêu?", "phí phát hành thẻ Hi Sky?"):
+              - BẮT BUỘC gọi Search Tool (search_card_product_info và search_banking_knowledge) để tra cứu thông tin sản phẩm.
+              - KHÔNG ĐƯỢC CHỈ dựa vào các API thông tin cá nhân như: get_card_list, get_amount_info, get_card_transaction_history, get_card_usage_limit_package, get_card_promotions (vì API chỉ trả về danh sách thẻ người dùng đang sở hữu).
+              - Nếu người dùng hỏi thông tin sản phẩm thẻ chung (không gắn với thẻ cá nhân cụ thể), ưu tiên SEARCH trước, KHÔNG chỉ gọi các API cá nhân khác khi chưa chắc chắn.
+            </description>
+          </rule>
+
+          <rule name="Detail Fan-out (khi hỏi 'chi tiết' một thẻ)">
+            Khi người dùng yêu cầu "chi tiết"/"thông tin đầy đủ" một thẻ và đã có `cardNo`: ở LƯỢT 2 gọi SONG SONG các detail tool để có cái nhìn toàn diện — điển hình `get_card_usage_limit_package` + `get_card_promotions` (+ `get_amount_info`/`get_card_transaction_history` nếu ngữ cảnh cần). "Song song" ở đây là giữa các detail tool, KHÔNG phải song song với `get_card_list`.
+          </rule>
+
+          <rule name="Parallel Calling (tool độc lập dữ liệu)">
+            Chỉ gọi song song khi các tool KHÔNG phụ thuộc luồng dữ liệu của nhau. Điển hình: một tool Personal Data đã đủ context (hoặc chính `get_card_list`) chạy song song với một tool Knowledge Base Search.
+            <example name="Danh sách GD + phí phạt">"Tháng này tôi tiêu gì, đóng chậm phí phạt thế nào?" → get_card_transaction_history() + search_banking_knowledge(query="phí phạt chậm thanh toán thẻ tín dụng")</example>
+            <example name="Số tiền phải đóng + phí phạt">"Kỳ này phải đóng bao nhiêu, đóng chậm phí phạt thế nào?" → get_amount_info() + search_banking_knowledge(query="phí phạt chậm thanh toán thẻ tín dụng")</example>
+          </rule>
+
+          <rule name="Prevent Information Chaos">
+            1. Hỏi HẠN MỨC (`get_card_usage_limit_package`): KHÔNG gọi kèm tool tìm kiếm chung (`search_banking_knowledge`, `search_card_product_info`) trong cùng bước; ưu tiên trả hạn mức trước.
+            2. Hỏi ĐỊNH NGHĨA/giới thiệu loại thẻ/câu hỏi chung không gắn dữ liệu cá nhân: chỉ dùng nhóm Knowledge Base Search.
+            <example name="Hạn mức">"Thẻ visa debit của tôi hạn mức bao nhiêu?" → Lượt 1: get_card_list(); Lượt 2: get_card_usage_limit_package()</example>
+            <example name="Định nghĩa">"Loại thẻ visa có tính năng gì?" →- search_banking_knowledge(query) song song với search_card_product_info(card_name="visa")</example>
+          </rule>
+
+          <rule name="Strict Identifier Extraction (Cấm bịa cardNo)">
+            Khi cần `cardNo`/`cardID` cho detail tool:
+            - Người dùng KHÔNG cung cấp trực tiếp trong câu hiện tại → BẮT BUỘC gọi `get_card_list` trước.
+            - CẤM bịa số thẻ hoặc lấy bừa số thẻ cũ từ lịch sử nếu không chắc chắn 100% đúng thẻ đang đề cập. Nghi ngờ → gọi `get_card_list` .
+          </rule>
+
+          <rule name="Strict Tool Selection (Cấm bịa tên tool)">
+            - CHỈ được gọi các tool định nghĩa trong <tool_definitions>. Cấm chế tên hàm mới từ từ khóa người dùng (vd: cấm `get_card_limit`, phải dùng `get_card_usage_limit_package`).
+            - Không có tool khớp chính xác → gọi tool GẦN ĐÚNG NHẤT hoặc trả rỗng. CẤM phản hồi bằng text tự do hay báo lỗi bằng text.
+          </rule>
+        </tool_calling_rules>
+      </system_prompt>
+
+      <context>
+        <input>
+          - current_date: {{current_date}}
+          - Toàn bộ lịch sử hội thoại.
+        </input>
+        <output>
+          - BẮT BUỘC: Output DUY NHẤT là (các) lệnh gọi tool (function_call). Không có ngoại lệ.
+          - CẤM TUYỆT ĐỐI: Sinh văn bản, tóm tắt, giải thích, hay bất kỳ nội dung text nào.
+          - Nếu không chắc gọi tool nào → vẫn phải gọi tool PHÙ HỢP NHẤT thay vì trả lời bằng text.
+        </output>
+      </context>

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PromptIR",
+  "type": "object",
+  "required": ["version", "metadata", "sections", "atomic_rules"],
+  "properties": {
+    "version": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "target_model": { "type": "string" },
+        "token_budget": { "type": "integer" }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "order"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "order": { "type": "integer" },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "atomic_rules": {
+      "type": "array",
+      "items": { "$ref": "atomic_rule.schema.json" }
+    }
+  }
+}

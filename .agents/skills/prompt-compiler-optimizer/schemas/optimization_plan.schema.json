@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OptimizationPlan",
+  "type": "object",
+  "required": ["version", "target_profile", "passes"],
+  "properties": {
+    "version": { "type": "string" },
+    "target_profile": { "type": "string" },
+    "estimated_token_saving": { "type": "integer" },
+    "passes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pass_name", "enabled", "order"],
+        "properties": {
+          "pass_name": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "order": { "type": "integer" },
+          "parameters": { "type": "object" },
+          "rationale": { "type": "string" }
+        }
+      }
+    }
+  }
+}

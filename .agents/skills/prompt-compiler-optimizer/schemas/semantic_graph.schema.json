@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SemanticGraph",
+  "type": "object",
+  "required": ["nodes", "edges"],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "category"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "category": { "type": "string" },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "relation"],
+        "properties": {
+          "source": { "type": "string" },
+          "target": { "type": "string" },
+          "relation": {
+            "type": "string",
+            "enum": ["conflicts_with", "depends_on", "subsumes", "duplicates", "refines", "triggers"]
+          },
+          "weight": { "type": "number" }
+        }
+      }
+    }
+  }
+}

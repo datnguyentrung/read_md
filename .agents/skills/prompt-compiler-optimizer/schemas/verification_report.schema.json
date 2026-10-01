@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationReport",
+  "type": "object",
+  "required": ["timestamp", "status", "metrics_delta", "invariants", "test_results"],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "status": {
+      "type": "string",
+      "enum": ["PASSED", "WARNING", "FAILED"]
+    },
+    "metrics_delta": {
+      "type": "object",
+      "properties": {
+        "original_tokens": { "type": "integer" },
+        "optimized_tokens": { "type": "integer" },
+        "token_reduction_pct": { "type": "number" },
+        "complexity_reduction_pct": { "type": "number" }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "status"],
+        "properties": {
+          "rule_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PRESERVED", "VIOLATED", "MUTATED"] },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "test_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_case_id", "passed"],
+        "properties": {
+          "test_case_id": { "type": "string" },
+          "description": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "error_trace": { "type": "string" }
+        }
+      }
+    }
+  }
+}
