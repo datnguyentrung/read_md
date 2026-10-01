@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "SemanticGraph",
   "title": "SemanticGraph",
   "type": "object",
   "required": ["nodes", "edges"],
@@ -27,9 +28,10 @@
           "target": { "type": "string" },
           "relation": {
             "type": "string",
-            "enum": ["conflicts_with", "depends_on", "subsumes", "duplicates", "refines", "triggers"]
+            "enum": ["same_as", "subsumes", "conflicts_with", "depends_on", "refines", "triggers", "example_of", "exception_to"]
           },
-          "weight": { "type": "number" }
+          "weight": { "type": ["number", "null"] },
+          "reason": { "type": "string" }
         }
       }
     }

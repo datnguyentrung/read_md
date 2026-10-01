@@ -1,31 +1,82 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "AtomicRule",
   "title": "AtomicRule",
   "type": "object",
-  "required": ["id", "type", "description", "priority"],
+  "required": ["id", "type", "semantics", "source_spans", "scope", "priority"],
   "properties": {
-    "id": { "type": "string" },
-    "section_id": { "type": "string" },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the atomic rule (e.g. R-001)"
+    },
     "type": {
       "type": "string",
-      "enum": ["constraint", "behavior", "format", "fallback", "invariant", "definition"]
+      "enum": ["behavior", "constraint", "decision", "knowledge", "example", "output"],
+      "description": "Classification of the rule's operational function"
     },
-    "description": { "type": "string" },
-    "priority": {
+    "semantics": {
       "type": "string",
-      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+      "minLength": 1,
+      "description": "Normalized, unambiguous semantic statement of the rule"
+    },
+    "actor": {
+      "type": ["string", "null"],
+      "description": "Entity executing the rule (e.g., Assistant, User, System)"
+    },
+    "action": {
+      "type": ["string", "null"],
+      "description": "Action being governed, prohibited, or prescribed"
+    },
+    "object": {
+      "type": ["string", "null"],
+      "description": "Target entity or topic of the action"
     },
     "conditions": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "description": "Preconditions required for the rule to apply"
     },
-    "actions": {
+    "exceptions": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "description": "Specific boundary exceptions modifying or overriding the rule"
     },
-    "tags": {
+    "scope": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Domain/context scopes where the rule is active"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "description": "Priority score for conflict resolution (0=Highest/Critical, 1000=Lowest)"
+    },
+    "source_spans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["section", "text"],
+        "properties": {
+          "section": { "type": "string" },
+          "line_range": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      },
+      "description": "Full provenance back to source prompt text (INV-01)"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Confidence of extraction"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "externalized", "pruned", "needs_review"],
+      "description": "Lifecycle state of the rule"
     }
   }
 }

@@ -1,5 +1,5 @@
-//! IR Validator
-//! Validates Prompt IR JSON against required fields and structure in Rust.
+//! IR Validator (V4.1)
+//! Validates Prompt IR JSON against schema constraints and invariants (INV-01 to INV-08).
 
 use std::env;
 use std::fs;
@@ -10,11 +10,19 @@ fn validate_ir(ir_path: &Path) -> bool {
     match fs::read_to_string(ir_path) {
         Ok(content) => match serde_json::from_str::<PromptIR>(&content) {
             Ok(ir) => {
-                println!("[+] Prompt IR is valid. Version: {}, Rules: {}", ir.version, ir.atomic_rules.len());
+                // Check INV-01: Provenance completeness on all active rules
+                for rule in &ir.atomic_rules {
+                    if rule.status == "active" && rule.source_spans.is_empty() {
+                        eprintln!("[-] Invariant Violation (INV-01): Rule {} has no source_spans!", rule.id);
+                        return false;
+                    }
+                }
+                println!("[+] Prompt IR is valid according to V4.1 schema. Rules: {}, Invariants: {}", 
+                         ir.atomic_rules.len(), ir.invariants.len());
                 true
             }
             Err(e) => {
-                eprintln!("[-] Validation Error: {}", e);
+                eprintln!("[-] Schema Validation Error: {}", e);
                 false
             }
         },

@@ -1,24 +1,45 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "OptimizationPlan",
   "title": "OptimizationPlan",
   "type": "object",
-  "required": ["version", "target_profile", "passes"],
+  "required": ["decision", "passes", "hard_invariants"],
   "properties": {
-    "version": { "type": "string" },
-    "target_profile": { "type": "string" },
-    "estimated_token_saving": { "type": "integer" },
+    "status": {
+      "type": "string",
+      "enum": ["PLANNED", "NEEDS_REVIEW", "EXECUTING", "COMPLETED", "ROLLED_BACK"],
+      "default": "PLANNED"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["KEEP", "LIGHT", "STRUCTURAL", "MAJOR", "EXTERNALIZE", "MODULARIZE"],
+      "description": "Overall architectural optimization tier selected"
+    },
     "passes": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["pass_name", "enabled", "order"],
+        "required": ["name", "enabled", "risk"],
         "properties": {
-          "pass_name": { "type": "string" },
+          "name": { "type": "string" },
           "enabled": { "type": "boolean" },
+          "risk": { "type": "string", "enum": ["low", "medium", "high", "operational_high"] },
           "order": { "type": "integer" },
           "parameters": { "type": "object" },
           "rationale": { "type": "string" }
         }
+      }
+    },
+    "hard_invariants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Mandatory invariants that must be preserved (100% coverage required)"
+    },
+    "token_target": {
+      "type": "object",
+      "properties": {
+        "max": { "type": ["integer", "null"] },
+        "desired_reduction": { "type": ["number", "null"] }
       }
     }
   }

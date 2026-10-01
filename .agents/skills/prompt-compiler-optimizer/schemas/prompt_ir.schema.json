@@ -1,17 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "PromptIR",
   "title": "PromptIR",
   "type": "object",
   "required": ["version", "metadata", "sections", "atomic_rules"],
   "properties": {
-    "version": { "type": "string" },
+    "version": {
+      "type": "string",
+      "description": "Schema version (e.g., 4.1.0)"
+    },
     "metadata": {
       "type": "object",
+      "required": ["source_hash"],
       "properties": {
         "title": { "type": "string" },
         "author": { "type": "string" },
         "target_model": { "type": "string" },
-        "token_budget": { "type": "integer" }
+        "source_hash": { "type": "string", "description": "Hash of source prompt for provenance (INV-07)" },
+        "token_budget": { "type": ["integer", "null"] },
+        "mode": { "type": "string", "enum": ["chat", "classifier", "agent", "tool"] }
       }
     },
     "sections": {
@@ -23,13 +30,42 @@
           "id": { "type": "string" },
           "title": { "type": "string" },
           "order": { "type": "integer" },
+          "role_hint": { "type": "string", "enum": ["objective", "rules", "examples", "knowledge", "output", "unknown"] },
           "content": { "type": "string" }
+        }
+      }
+    },
+    "semantic_units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "start", "end"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" },
+          "start": { "type": "integer" },
+          "end": { "type": "integer" },
+          "section_path": { "type": "array", "items": { "type": "string" } },
+          "role_hint": { "type": ["string", "null"] }
         }
       }
     },
     "atomic_rules": {
       "type": "array",
       "items": { "$ref": "atomic_rule.schema.json" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "rule_ref"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "rule_ref": { "type": "string" },
+          "required": { "type": "boolean", "default": true }
+        }
+      }
     }
   }
 }

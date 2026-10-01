@@ -1,5 +1,5 @@
-//! Graph Analyzer
-//! Analyzes dependency and conflict relations across atomic rules in Rust.
+//! Graph Analyzer (V4.1)
+//! Analyzes dependency, overlap, and conflict relations across atomic rules in Rust.
 
 use std::env;
 use std::fs;
@@ -17,12 +17,9 @@ fn analyze_graph(ir_path: &Path) -> Result<SemanticGraph, Box<dyn std::error::Er
         .iter()
         .map(|r| GraphNode {
             id: r.id.clone(),
-            label: if r.description.len() > 30 {
-                r.description[..30].to_string()
-            } else {
-                r.description.clone()
-            },
+            label: r.semantics.chars().take(30).collect(),
             category: r.rule_type.clone(),
+            metadata: None,
         })
         .collect();
 

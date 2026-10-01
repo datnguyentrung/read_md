@@ -1,21 +1,40 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "VerificationReport",
   "title": "VerificationReport",
   "type": "object",
-  "required": ["timestamp", "status", "metrics_delta", "invariants", "test_results"],
+  "required": ["timestamp", "status", "assurance_level", "static_gate", "behavior_gate", "metrics_delta"],
   "properties": {
-    "timestamp": { "type": "string", "format": "date-time" },
+    "timestamp": { "type": "string" },
     "status": {
       "type": "string",
-      "enum": ["PASSED", "WARNING", "FAILED"]
+      "enum": ["RELEASED", "NEEDS_REVIEW", "UNVERIFIED", "ROLLED_BACK"]
+    },
+    "assurance_level": {
+      "type": "string",
+      "enum": ["VERIFIED_STATIC", "VERIFIED_OFFLINE", "VERIFIED_CONTRACT", "VERIFIED_MOCK", "VERIFIED_E2E"]
+    },
+    "verification_scope": { "type": "string" },
+    "verification_debt": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "static_gate": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "NEEDS_REVIEW"]
+    },
+    "behavior_gate": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "SKIPPED", "NEEDS_REVIEW"]
     },
     "metrics_delta": {
       "type": "object",
       "properties": {
-        "original_tokens": { "type": "integer" },
-        "optimized_tokens": { "type": "integer" },
+        "tokens_before": { "type": "integer" },
+        "tokens_after": { "type": "integer" },
         "token_reduction_pct": { "type": "number" },
-        "complexity_reduction_pct": { "type": "number" }
+        "critical_regressions": { "type": "integer" },
+        "required_invariant_coverage": { "type": "number" }
       }
     },
     "invariants": {
@@ -37,7 +56,8 @@
         "required": ["test_case_id", "passed"],
         "properties": {
           "test_case_id": { "type": "string" },
-          "description": { "type": "string" },
+          "target_scope": { "type": "string" },
+          "oracle_type": { "type": "string" },
           "passed": { "type": "boolean" },
           "error_trace": { "type": "string" }
         }
