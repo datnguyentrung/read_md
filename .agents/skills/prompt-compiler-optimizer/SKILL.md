@@ -42,13 +42,17 @@ graph TD
 ## Usage Guide
 Run the main optimization pipeline:
 ```bash
-python scripts/run_pipeline.py --input <path-to-prompt.md> --output-dir ./artifacts --profile gpt-4o
+cargo run --bin run_pipeline -- --input <path-to-prompt.md> --output-dir ./artifacts --profile gpt-4o
 ```
 Validate IR against schema:
 ```bash
-python scripts/ir_validator.py --ir ./artifacts/prompt_ir.json
+cargo run --bin ir_validator -- --ir ./artifacts/prompt_ir.json
 ```
 Run regression & invariant checks:
 ```bash
-python scripts/regression_runner.py --original <prompt.md> --optimized ./artifacts/optimized_prompt.md
+cargo run --bin regression_runner -- --original <prompt.md> --optimized ./artifacts/optimized_prompt.md
+```
+Run tests:
+```bash
+cargo test
 ```
