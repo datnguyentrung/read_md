@@ -13,7 +13,9 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::Path;
-use prompt_compiler_optimizer::passes::{normalize_terms, reorder_structure, semantic_dedup};
+use prompt_compiler_optimizer::passes::{
+    normalize_terms, preserve_and_structure_examples, reorder_structure, semantic_dedup,
+};
 use prompt_compiler_optimizer::types::{
     AtomicRule, ChangeLogEntry, Invariant, OptimizationPlan, PassSpec, PromptIR, Section,
     SemanticUnit, SourceSpan, VerificationReport,
@@ -209,8 +211,12 @@ fn main() {
     all_changes.extend(ch2);
 
     // Pass 3
-    let (optimized_ir, ch3) = reorder_structure::run_pass(ir_p2);
+    let (ir_p3, ch3) = reorder_structure::run_pass(ir_p2);
     all_changes.extend(ch3);
+
+    // Pass 4: Bảo toàn 100% ví dụ (INV-09)
+    let (optimized_ir, ch4) = preserve_and_structure_examples::run_pass(ir_p3);
+    all_changes.extend(ch4);
 
     // Lưu IR đã tối ưu và nhật ký thay đổi ChangeLog
     fs::write(

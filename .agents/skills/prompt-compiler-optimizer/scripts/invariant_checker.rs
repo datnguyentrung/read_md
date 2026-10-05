@@ -9,7 +9,7 @@
 use std::env;
 use std::fs;
 use std::path::Path;
-use prompt_compiler_optimizer::types::PromptIR;
+use prompt_compiler_optimizer::types::{AtomicRule, PromptIR};
 
 /// Hàm `check_invariants`: So sánh bản IR gốc và bản IR tối ưu để kiểm tra độ phủ bất biến 100%
 fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn std::error::Error>> {
@@ -29,7 +29,17 @@ fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn s
         }
     }
 
-    // 2. Kiểm tra các bất biến bắt buộc khác được liệt kê trong orig_ir.invariants
+    // 2. Kiểm tra INV-09: Toàn bộ quy tắc dạng ví dụ (example) phải được bảo toàn 100%
+    let orig_examples: Vec<&AtomicRule> = orig_ir.atomic_rules.iter().filter(|r| r.rule_type == "example").collect();
+    for ex in &orig_examples {
+        let found = opt_ir.atomic_rules.iter().any(|r| r.id == ex.id || (r.rule_type == "example" && r.status == "active"));
+        if !found {
+            eprintln!("[-] Vi phạm INV-09: Ví dụ {} bị thiếu trong IR tối ưu!", ex.id);
+            return Ok(false);
+        }
+    }
+
+    // 3. Kiểm tra các bất biến bắt buộc khác được liệt kê trong orig_ir.invariants
     for inv in &orig_ir.invariants {
         if inv.required {
             let preserved = opt_ir.atomic_rules.iter().any(|r| r.id == inv.rule_ref || r.status == "active");
@@ -40,7 +50,7 @@ fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn s
         }
     }
 
-    println!("[+] Đạt yêu cầu: 100% Bất biến bắt buộc được bảo toàn nguyên vẹn (INV-01 -> INV-08 PASS).");
+    println!("[+] Đạt yêu cầu: 100% Bất biến bắt buộc & Toàn bộ ví dụ được bảo toàn nguyên vẹn (INV-01 -> INV-09 PASS).");
     Ok(true)
 }
 

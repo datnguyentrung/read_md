@@ -6,7 +6,8 @@ Bản ứng viên được phát hành (**`RELEASED`**) khi và chỉ khi:
 
 ```text
 unresolved_critical_conflicts == 0       # 0 xung đột nghiêm trọng
-AND required_invariant_coverage == 100%  # 100% bất biến bắt buộc được bảo toàn
+AND required_invariant_coverage == 100%  # 100% bất biến bắt buộc được bảo toàn (INV-01 đến INV-09)
+AND example_preservation_rate == 100%    # 100% ví dụ minh họa gốc được bảo toàn đầy đủ
 AND critical_regressions == 0            # 0 lỗi hồi quy nghiêm trọng
 AND output_contract_preserved == true    # Hợp đồng đầu ra giữ nguyên vẹn
 AND token_budget_ok == true              # Không vượt ngân sách token

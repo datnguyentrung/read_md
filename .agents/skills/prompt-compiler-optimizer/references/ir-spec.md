@@ -12,6 +12,7 @@ Prompt IR là mô hình dữ liệu chuẩn hóa (AST-like) đại diện cho to
 - **INV-06 (Phát hành tất định - Deterministic Release)**: Cổng phát hành dựa trên kết quả kiểm tra tất định, không dựa vào một điểm số LLM đơn lẻ.
 - **INV-07 (Toàn vẹn nguồn - Source Integrity)**: Lưu `source_hash` của prompt gốc để phát hiện thay đổi.
 - **INV-08 (Tái lập được - Reproducibility)**: Lưu cấu hình, phiên bản optimizer, target profile và thứ tự passes.
+- **INV-09 (Bảo toàn 100% Ví dụ - Example Completeness)**: Mọi quy tắc, mẫu dữ liệu, JSON payload, few-shot hoặc template mang bản chất là ví dụ (`type: example` hoặc section role `examples`) từ prompt nguồn BẮT BUỘC phải xuất hiện đầy đủ 100% trong prompt đích, tuyệt đối không được lược bỏ hay cắt bớt.
 
 ## 3. Cấu Trúc Lõi Của AtomicRule
 ```json
