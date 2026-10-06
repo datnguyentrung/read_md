@@ -14,12 +14,51 @@ use std::env;
 use std::fs;
 use std::path::Path;
 use prompt_compiler_optimizer::passes::{
-    normalize_terms, preserve_and_structure_examples, reorder_structure, semantic_dedup,
+    decision_tree, externalization, generalization, modularization, normalize_terms,
+    preserve_and_structure_examples, reorder_structure, semantic_dedup,
 };
 use prompt_compiler_optimizer::types::{
     AtomicRule, ChangeLogEntry, Invariant, OptimizationPlan, PassSpec, PromptIR, Section,
     SemanticUnit, SourceSpan, VerificationReport,
 };
+
+/// Pass Dispatcher Engine (Điểm giao thoa giữa Phase 3 và Phase 4):
+/// Duyệt danh sách các pass được kích hoạt trong `OptimizationPlan` theo đúng thứ tự `order`
+/// và điều phối gọi hàm thực thi tương ứng trong `scripts/passes/`.
+fn execute_pass_pipeline(
+    mut ir: PromptIR,
+    plan: &OptimizationPlan,
+) -> (PromptIR, Vec<ChangeLogEntry>) {
+    let mut all_changes: Vec<ChangeLogEntry> = Vec::new();
+
+    // Lọc các pass được kích hoạt (enabled) và sắp xếp tăng dần theo trường 'order'
+    let mut active_passes: Vec<&PassSpec> = plan.passes.iter().filter(|p| p.enabled).collect();
+    active_passes.sort_by_key(|p| p.order.unwrap_or(999));
+
+    println!("[*] Pass Dispatcher kích hoạt {} pass từ OptimizationPlan (Tier: {}):", active_passes.len(), plan.decision);
+
+    for pass in active_passes {
+        println!("    -> Đang chạy pass [Thứ tự: {:?} | Rủi ro: {}]: {}", pass.order, pass.risk, pass.name);
+        let (next_ir, changes) = match pass.name.as_str() {
+            "normalize_terms" => normalize_terms::run_pass(ir, None),
+            "semantic_dedup" => semantic_dedup::run_pass(ir),
+            "reorder_structure" => reorder_structure::run_pass(ir),
+            "preserve_and_structure_examples" => preserve_and_structure_examples::run_pass(ir),
+            "generalization" => generalization::run_pass(ir),
+            "decision_tree" => decision_tree::run_pass(ir),
+            "externalization" => externalization::run_pass(ir),
+            "modularization" => modularization::run_pass(ir),
+            unknown => {
+                eprintln!("    [!] Cảnh báo: Bỏ qua pass không xác định '{}'", unknown);
+                (ir, vec![])
+            }
+        };
+        ir = next_ir;
+        all_changes.extend(changes);
+    }
+
+    (ir, all_changes)
+}
 
 /// Hàm `main`: Điểm bắt đầu thực thi chuỗi công cụ biên dịch Prompt
 fn main() {
@@ -182,6 +221,14 @@ fn main() {
                 parameters: None,
                 rationale: Some("Sắp xếp lại theo điểm ưu tiên".to_string()),
             },
+            PassSpec {
+                name: "preserve_and_structure_examples".to_string(),
+                enabled: true,
+                risk: "low".to_string(),
+                order: Some(4),
+                parameters: None,
+                rationale: Some("Bảo toàn 100% ví dụ mẫu (INV-09)".to_string()),
+            },
         ],
         hard_invariants: vec!["INV-R1".to_string()],
         token_target: None,
@@ -194,29 +241,11 @@ fn main() {
 
     // -------------------------------------------------------------------------------------
     // PHASE 4: THỰC THI CHUỖI LƯỢT TỐI ƯU HÓA (PASS EXECUTION ENGINE)
-    // -> Chạy Pass 1: normalize_terms (Chuẩn hóa từ ngữ).
-    // -> Chạy Pass 2: semantic_dedup (Khử trùng ngữ nghĩa, gộp source_spans).
-    // -> Chạy Pass 3: reorder_structure (Sắp xếp theo độ ưu tiên).
+    // -> Điều phối động qua `execute_pass_pipeline`: duyệt `plan.passes` theo thứ tự `order`.
+    // -> Ánh xạ trực tiếp tên pass tới từng hàm thực thi trong `scripts/passes/`.
     // -> Ghi lại toàn bộ lịch sử biến đổi vào `changes.json` (Bảo đảm INV-02).
     // -------------------------------------------------------------------------------------
-    println!("[*] Đang thực thi chuỗi pass tối ưu hóa (Pass 1 -> Pass 2 -> Pass 3)...");
-    let mut all_changes: Vec<ChangeLogEntry> = Vec::new();
-
-    // Pass 1
-    let (ir_p1, ch1) = normalize_terms::run_pass(initial_ir, None);
-    all_changes.extend(ch1);
-
-    // Pass 2
-    let (ir_p2, ch2) = semantic_dedup::run_pass(ir_p1);
-    all_changes.extend(ch2);
-
-    // Pass 3
-    let (ir_p3, ch3) = reorder_structure::run_pass(ir_p2);
-    all_changes.extend(ch3);
-
-    // Pass 4: Bảo toàn 100% ví dụ (INV-09)
-    let (optimized_ir, ch4) = preserve_and_structure_examples::run_pass(ir_p3);
-    all_changes.extend(ch4);
+    let (optimized_ir, all_changes) = execute_pass_pipeline(initial_ir, &plan);
 
     // Lưu IR đã tối ưu và nhật ký thay đổi ChangeLog
     fs::write(

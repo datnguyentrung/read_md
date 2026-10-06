@@ -57,31 +57,32 @@ graph TD
 - **Tài nguyên sử dụng**: `prompts/relation-classifier.md`, `scripts/graph_analyzer.rs`, `schemas/semantic_graph.schema.json`.
 - **Đầu ra**: Đồ thị quan hệ `SemanticGraph` (In-Memory).
 
-### 📍 Phase 3: Lập Kế Hoạch Tối Ưu (Optimization Planning)
-- **Mục đích**: Phân loại mức độ can thiệp theo khung quyết định (`KEEP`, `LIGHT`, `STRUCTURAL`, `MAJOR`, `EXTERNALIZE`, `MODULARIZE`) và lập danh sách các passes cần chạy.
-- **Khung Quyết Định Tiers**:
-  | Quyết Định | Điều Kiện Điển Hình | Hành Động Kích Hoạt |
+### 📍 Phase 3: Lập Kế Hoạch Tối Ưu (Optimization Planning - Cognitive Bridge)
+- **Mục đích**: Phân tích đồ thị `SemanticGraph`, phân loại mức độ can thiệp theo khung quyết định (`KEEP`, `LIGHT`, `STRUCTURAL`, `MAJOR`, `EXTERNALIZE`, `MODULARIZE`) và đóng gói danh sách các pass kích hoạt vào `OptimizationPlan`.
+- **Bảng Giao Thoa Quyết Định ➔ Danh Sách Hàm Pass Thực Thi (Bridge Matrix)**:
+  | Quyết Định (Tier) | Điều Kiện Kích Hoạt | Danh Sách Hàm Pass Chỉ Định Chạy Trong Phase 4 |
   | :--- | :--- | :--- |
-  | **`KEEP`** | Token trong ngân sách, cấu trúc rõ, không dư thừa/xung đột | Không biến đổi; xuất báo cáo audit |
-  | **`LIGHT`** | Thuật ngữ trùng, diễn đạt lặp, ngữ nghĩa ổn định | Chuẩn hóa thuật ngữ + Khử trùng ngữ nghĩa an toàn |
-  | **`STRUCTURAL`** | Logic tốt nhưng thứ bậc/luồng nhận thức khó hiểu | Sắp xếp lại cấu trúc + Cây quyết định |
-  | **`MAJOR`** | Chồng lấn, xung đột chính sách, cấu trúc phức tạp | Đồ thị ngữ nghĩa + Tổng quát hóa (Bảo toàn 100% ví dụ) |
-  | **`EXTERNALIZE`** | Khối tri thức lớn/hay đổi, có cơ chế truy xuất | Tách tri thức ra tệp tham chiếu / RAG payload |
-  | **`MODULARIZE`** | Prompt rất lớn, nhiều miền nghiệp vụ độc lập | Tách Core Prompt + Modules nạp runtime |
+  | **`KEEP`** | Token trong ngân sách, cấu trúc rõ, không dư thừa/xung đột | *(Không gọi pass nào; chuyển thẳng sang Phase 6 xuất Audit Report)* |
+  | **`LIGHT`** | Thuật ngữ trùng, diễn đạt lặp ngữ nghĩa (`same_as`) | 1. `normalize_terms::run_pass`<br>2. `semantic_dedup::run_pass`<br>3. `reorder_structure::run_pass`<br>4. `preserve_and_structure_examples::run_pass` |
+  | **`STRUCTURAL`** | Logic tốt nhưng thứ bậc lộn xộn hoặc điều kiện if/else rắc rối | 1. `reorder_structure::run_pass`<br>2. `decision_tree::run_pass`<br>3. `preserve_and_structure_examples::run_pass` |
+  | **`MAJOR`** | Chồng lấn, xung đột chính sách (`conflicts_with`), bao hàm (`subsumes`) | 1. `generalization::run_pass` (kết hợp `prompts/generalizer.md`)<br>2. `semantic_dedup::run_pass`<br>3. `reorder_structure::run_pass`<br>4. `preserve_and_structure_examples::run_pass` |
+  | **`EXTERNALIZE`** | Khối tri thức lớn/hay đổi, có cơ chế truy xuất ngoài | 1. `externalization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` |
+  | **`MODULARIZE`** | Prompt rất lớn, nhiều miền nghiệp vụ độc lập | 1. `modularization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` |
 - **Tài nguyên tham chiếu**: `references/optimization-passes.md`.
-- **Đầu ra**: Kế hoạch tối ưu `OptimizationPlan` (In-Memory).
+- **Đầu ra**: Kế hoạch tối ưu `OptimizationPlan` (In-Memory hoặc `optimization_plan.json`).
 
-### 📍 Phase 4: Thực Thi Chuỗi Optimization Passes (Pass Execution Engine)
-- **Mục đích**: Chạy tuần tự các thuật toán biến đổi IR từ mức rủi ro thấp đến cao. Mọi hành động gộp, sửa, xóa đều được ghi vết vào ChangeLog (bảo toàn `INV-02`).
-- **Chi tiết các hàm thực thi trong `scripts/passes/`**:
+### 📍 Phase 4: Thực Thi Chuỗi Optimization Passes (Pass Execution Engine & Dispatcher)
+- **Mục đích**: Nhận `OptimizationPlan` từ Phase 3, dùng cơ chế **Pass Dispatcher** duyệt tuần tự các pass được kích hoạt (`enabled == true`) theo thứ tự `order` từ mức rủi ro thấp đến cao. Mọi hành động gộp, sửa, xóa đều được ghi vết vào ChangeLog (bảo toàn `INV-02`).
+- **Cơ chế Dispatcher & Danh mục hàm thực thi trong `scripts/passes/`**:
   1. **Chuẩn hóa thuật ngữ**: `normalize_terms::run_pass(ir: PromptIR, dict: Option<HashMap<String, String>>) -> (PromptIR, Vec<ChangeLogEntry>)`
   2. **Khử trùng lặp ngữ nghĩa**: `semantic_dedup::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
   3. **Sắp xếp lại cấu trúc**: `reorder_structure::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
-  4. **Bảo toàn & cấu trúc hóa ví dụ**: `preserve_and_structure_examples::run_pass(ir: PromptIR, config) -> (PromptIR, Vec<ChangeLogEntry>)` (Bảo toàn 100% ví dụ mẫu)
-  5. **Tổng quát hóa quy tắc**: `generalization::run_pass(ir: PromptIR)` (kết hợp với `prompts/generalizer.md`, bảo toàn ví dụ)
-  6. **Cây quyết định**: `decision_tree::run_pass(ir: PromptIR)`
-  7. **Tách mô-đun / tri thức**: `modularization::run_pass` & `externalization::run_pass`
-- **Đầu ra**: `OptimizedIR` và `ChangeLog` (In-Memory).
+  4. **Bảo toàn & cấu trúc hóa ví dụ (BẮT BUỘC Ở CUỐI)**: `preserve_and_structure_examples::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)` (Bảo toàn 100% ví dụ mẫu theo `INV-09`)
+  5. **Tổng quát hóa quy tắc**: `generalization::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
+  6. **Cây quyết định**: `decision_tree::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
+  7. **Tách tri thức ngoài**: `externalization::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
+  8. **Mô-đun hóa Runtime**: `modularization::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
+- **Đầu ra**: `OptimizedIR` và `ChangeLog` (`optimized_ir.json` và `changes.json`).
 
 ### 📍 Phase 5: Biên Dịch Prompt Ứng Viên (Candidate Compilation)
 - **Mục đích**: Render cấu trúc IR tối ưu hóa thành định dạng Prompt Markdown/YAML theo đúng hồ sơ (Profile) của mô hình đích, đảm bảo toàn bộ khối ví dụ được render đầy đủ 100%.

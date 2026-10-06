@@ -19,3 +19,16 @@ Mỗi pass chạy như một giao dịch (transaction):
 2. Thực hiện biến đổi trên IR.
 3. Kiểm tra điều kiện sau (`Post-conditions` & Invariants).
 4. Nếu đạt: ghi nhận vào `ChangeLog` và chuyển tiếp; Nếu vi phạm: tự động hoàn tác (`Rollback`).
+
+## 3. Bảng Ánh Xạ Chuỗi Pass Cho Từng Quyết Định (Decision Tier Pipeline)
+Dưới đây là chuỗi hàm pass được Pass Dispatcher kích hoạt cho từng trường hợp:
+
+| Quyết Định | Chuỗi Hàm Pass Được Kích Hoạt Theo Thứ Tự | Ghi Chú Kỹ Thuật |
+| :--- | :--- | :--- |
+| **`KEEP`** | *(Không gọi hàm nào)* | Xuất thẳng báo cáo Audit. |
+| **`LIGHT`** | 1. `normalize_terms::run_pass`<br>2. `semantic_dedup::run_pass`<br>3. `reorder_structure::run_pass`<br>4. `preserve_and_structure_examples::run_pass` | An toàn tuyệt đối, độ rủi ro thấp. |
+| **`STRUCTURAL`** | 1. `reorder_structure::run_pass`<br>2. `decision_tree::run_pass`<br>3. `preserve_and_structure_examples::run_pass` | Tái cấu trúc logic nhánh điều kiện và luồng nhận thức. |
+| **`MAJOR`** | 1. `generalization::run_pass`<br>2. `semantic_dedup::run_pass`<br>3. `reorder_structure::run_pass`<br>4. `preserve_and_structure_examples::run_pass` | Bắt buộc chạy kiểm thử vi sai (differential testing) và bảo toàn 100% ví dụ. |
+| **`EXTERNALIZE`** | 1. `externalization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` | Bóc tách khối tri thức lớn sang RAG/Reference docs. |
+| **`MODULARIZE`** | 1. `modularization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` | Bóc tách Core Prompt + Dynamic Domain Modules. |
+
