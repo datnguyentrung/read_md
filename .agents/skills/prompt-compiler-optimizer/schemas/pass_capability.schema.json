@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "PassCapabilityV5",
+  "type": "object",
+  "required": ["name", "capability", "implementation_status", "preconditions", "dependencies", "input_contract", "output_contract", "postconditions", "verification_requirements"],
+  "properties": {
+    "name": { "type": "string" },
+    "capability": { "type": "string" },
+    "implementation_status": { "type": "string", "enum": ["IMPLEMENTED", "PARTIAL", "NOT_IMPLEMENTED"] },
+    "preconditions": { "type": "array", "items": { "type": "string" } },
+    "dependencies": { "type": "array", "items": { "type": "string" } },
+    "input_contract": { "type": "string" },
+    "output_contract": { "type": "string" },
+    "postconditions": { "type": "array", "items": { "type": "string" } },
+    "verification_requirements": { "type": "array", "items": { "type": "string" } }
+  }
+}

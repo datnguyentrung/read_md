@@ -1,22 +1,23 @@
 //! Pass 1: Chuẩn Hóa Thuật Ngữ (Normalize Terms Pass)
-//! 
+//!
 //! THUỘC PHASE 4: TỐI ƯU HÓA RỦI RO THẤP (LOW-RISK OPTIMIZATION PASS)
 //! ========================================================================================
 //! MỤC ĐÍCH KĨ THUẬT:
-//! 1. Loại bỏ biến thể từ ngữ: Thay thế các biệt ngữ, từ viết tắt, từ đồng nghĩa ngẫu nhiên trong prompt 
+//! 1. Loại bỏ biến thể từ ngữ: Thay thế các biệt ngữ, từ viết tắt, từ đồng nghĩa ngẫu nhiên trong prompt
 //!    thành từ vựng chuẩn hóa duy nhất (Canonical Vocabulary).
 //! 2. Tăng độ tập trung cho mô hình AI: Giúp LLM dễ dàng chú ý vào các khái niệm chính mà không bị phân tâm bởi các từ đồng nghĩa.
 //! 3. Đảm bảo bất biến INV-02: Mọi thao tác chuẩn hóa từ ngữ phải được ghi nhận vết vào `ChangeLogEntry` với mức rủi ro `low`.
 
-use std::collections::HashMap;
+use crate::pipeline::sha256_hex;
 use crate::types::{ChangeLogEntry, PromptIR};
+use std::collections::HashMap;
 
 /// Thực thi lượt tối ưu chuẩn hóa thuật ngữ trên đối tượng `PromptIR`.
-/// 
+///
 /// # Tham số
 /// * `ir`: Đối tượng `PromptIR` đầu vào chứa tập hợp các quy tắc nguyên tử.
 /// * `synonyms`: Bảng tra cứu từ đồng nghĩa dạng `HashMap<Từ_Cũ, Từ_Mới>` (Tùy chọn).
-/// 
+///
 /// # Thuật toán & Quy trình xử lý
 /// 1. Khởi tạo danh sách theo dõi lịch sử biến đổi `changes`.
 /// 2. Nếu `synonyms` được truyền vào, duyệt qua từng quy tắc `AtomicRule` trong `ir.atomic_rules`.
@@ -24,10 +25,13 @@ use crate::types::{ChangeLogEntry, PromptIR};
 /// 4. Thực hiện thay thế tất cả xuất hiện của các khóa từ cũ `k` bằng từ chuẩn `v`.
 /// 5. Nếu chuỗi `updated` khác với `orig_semantics`:
 ///    - Gán chuỗi mới vào `rule.semantics`.
-///    - Tạo một bản ghi `ChangeLogEntry` ghi rõ `change_id`, `action: "normalize"`, `risk: "low"`, 
+///    - Tạo một bản ghi `ChangeLogEntry` ghi rõ `change_id`, `action: "normalize"`, `risk: "low"`,
 ///      mã băm trước/sau và cờ `provenance_preserved: true`.
 /// 6. Trả về cặp `(PromptIR_đã_cập_nật, Danh_sách_ChangeLogEntry)`.
-pub fn run_pass(mut ir: PromptIR, synonyms: Option<&HashMap<String, String>>) -> (PromptIR, Vec<ChangeLogEntry>) {
+pub fn run_pass(
+    mut ir: PromptIR,
+    synonyms: Option<&HashMap<String, String>>,
+) -> (PromptIR, Vec<ChangeLogEntry>) {
     let mut changes = Vec::new();
 
     // [Bước 1]: Kiểm tra sự tồn tại của bảng tra cứu từ đồng nghĩa
@@ -55,9 +59,8 @@ pub fn run_pass(mut ir: PromptIR, synonyms: Option<&HashMap<String, String>>) ->
                     target_rule_ids: vec![rule.id.clone()],
                     reason: "Chuẩn hóa thuật ngữ đồng nghĩa về dạng từ vựng chuẩn (Canonical Vocabulary)".to_string(),
                     risk: "low".to_string(),
-                    // Sử dụng độ dài chuỗi làm checksum băm đơn giản cho trước/sau biến đổi
-                    before_hash: format!("{:x}", orig_semantics.len()),
-                    after_hash: format!("{:x}", updated.len()),
+                    before_hash: sha256_hex(orig_semantics.as_bytes()),
+                    after_hash: sha256_hex(updated.as_bytes()),
                     provenance_preserved: true,
                     verification_refs: vec![],
                 });

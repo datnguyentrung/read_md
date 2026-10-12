@@ -1,5 +1,5 @@
 //! Prompt Metrics (Công Cụ Đo Lường Chỉ Số Token V4.1)
-//! 
+//!
 //! THUỘC PHASE 6: ĐO LƯỜNG VÀ CHẤM ĐIỂM (METRICS & AUDIT DELTA)
 //! ========================================================================================
 //! Tác dụng: Tính toán chính xác số dòng, số từ và số lượng token ước tính của văn bản prompt.
@@ -57,7 +57,10 @@ fn main() {
             println!("[Chỉ số đo lường cho tệp '{}']", file_str);
             println!("  Số dòng (lines): {}", m.lines);
             println!("  Số từ (words): {}", m.words);
-            println!("  Ước tính token (estimated_tokens): {}", m.estimated_tokens);
+            println!(
+                "  Ước tính token (estimated_tokens): {}",
+                m.estimated_tokens
+            );
         }
         Err(e) => {
             eprintln!("[-] Lỗi khi đọc tệp: {}", e);

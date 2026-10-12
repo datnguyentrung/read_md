@@ -1,66 +1,43 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "VerificationReport",
-  "title": "VerificationReport",
+  "$id": "VerificationReportV5",
+  "title": "VerificationOutcomeV5",
   "type": "object",
-  "required": ["timestamp", "status", "assurance_level", "static_gate", "behavior_gate", "metrics_delta"],
+  "additionalProperties": false,
+  "required": ["verification_status", "assurance_level", "release_decision", "layers", "evaluation_debt", "invariant_coverage", "example_preservation_rate", "output_contract_preserved", "critical_regressions", "manual_override"],
   "properties": {
-    "timestamp": { "type": "string" },
-    "status": {
-      "type": "string",
-      "enum": ["RELEASED", "NEEDS_REVIEW", "UNVERIFIED", "ROLLED_BACK"]
-    },
-    "assurance_level": {
-      "type": "string",
-      "enum": ["VERIFIED_STATIC", "VERIFIED_OFFLINE", "VERIFIED_CONTRACT", "VERIFIED_MOCK", "VERIFIED_E2E"]
-    },
-    "verification_scope": { "type": "string" },
-    "verification_debt": {
+    "verification_status": { "type": "string", "enum": ["UNVERIFIED", "PARTIALLY_VERIFIED", "VERIFIED", "FAILED"] },
+    "assurance_level": { "type": "string", "enum": ["UNVERIFIED", "VERIFIED_STATIC", "VERIFIED_DIFFERENTIAL", "VERIFIED_CONTRACT", "VERIFIED_MOCK", "VERIFIED_E2E"] },
+    "release_decision": { "type": "string", "enum": ["RELEASED", "NEEDS_REVIEW", "BLOCKED_INSUFFICIENT_ASSURANCE", "BLOCKED_UNSUPPORTED", "FAILED", "OVERRIDE_RELEASED"] },
+    "layers": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer", "status", "scope", "reason", "evidence"],
+        "properties": {
+          "layer": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "NOT_EXECUTED", "BLOCKED"] },
+          "scope": { "type": "string" },
+          "reason": { "type": "string" },
+          "evidence": { "type": "array", "items": { "type": "string" } }
+        }
+      }
     },
-    "static_gate": {
-      "type": "string",
-      "enum": ["PASS", "FAIL", "NEEDS_REVIEW"]
-    },
-    "behavior_gate": {
-      "type": "string",
-      "enum": ["PASS", "FAIL", "SKIPPED", "NEEDS_REVIEW"]
-    },
-    "metrics_delta": {
-      "type": "object",
+    "evaluation_debt": { "type": "array", "items": { "type": "string" } },
+    "invariant_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+    "example_preservation_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "output_contract_preserved": { "type": "boolean" },
+    "critical_regressions": { "type": ["integer", "null"], "minimum": 0 },
+    "manual_override": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["approver", "reason", "accepted_risks", "timestamp"],
       "properties": {
-        "tokens_before": { "type": "integer" },
-        "tokens_after": { "type": "integer" },
-        "token_reduction_pct": { "type": "number" },
-        "critical_regressions": { "type": "integer" },
-        "required_invariant_coverage": { "type": "number" }
-      }
-    },
-    "invariants": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["rule_id", "status"],
-        "properties": {
-          "rule_id": { "type": "string" },
-          "status": { "type": "string", "enum": ["PRESERVED", "VIOLATED", "MUTATED"] },
-          "notes": { "type": "string" }
-        }
-      }
-    },
-    "test_results": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["test_case_id", "passed"],
-        "properties": {
-          "test_case_id": { "type": "string" },
-          "target_scope": { "type": "string" },
-          "oracle_type": { "type": "string" },
-          "passed": { "type": "boolean" },
-          "error_trace": { "type": "string" }
-        }
+        "approver": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "accepted_risks": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string", "format": "date-time" }
       }
     }
   }

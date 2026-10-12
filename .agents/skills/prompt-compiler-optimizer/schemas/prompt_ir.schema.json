@@ -16,6 +16,11 @@
         "title": { "type": "string" },
         "author": { "type": "string" },
         "target_model": { "type": "string" },
+        "profile_resolution": { "type": "string", "enum": ["EXPLICIT", "DETECTED", "PARTIAL", "UNKNOWN"] },
+        "model_capabilities": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "enum": ["SUPPORTED", "UNSUPPORTED", "UNKNOWN"] }
+        },
         "source_hash": { "type": "string", "description": "Hash of source prompt for provenance (INV-07)" },
         "token_budget": { "type": ["integer", "null"] },
         "mode": { "type": "string", "enum": ["chat", "classifier", "agent", "tool"] }

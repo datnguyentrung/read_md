@@ -1,11 +1,11 @@
 //! Bộ Kiểm Thử Đơn Vị Hệ Thống (Pipeline Unit Tests V4.1)
-//! 
+//!
 //! Tác dụng: Kiểm tra tính đúng đắn của các lượt tối ưu hóa (Passes), việc gộp vết nguồn gốc (Provenance Merging INV-01)
 //!           và việc sắp xếp độ ưu tiên quy tắc trước khi chạy thật.
 
-use std::collections::HashMap;
 use prompt_compiler_optimizer::passes::{normalize_terms, reorder_structure, semantic_dedup};
 use prompt_compiler_optimizer::types::{AtomicRule, Invariant, PromptIR, SourceSpan};
+use std::collections::HashMap;
 
 /// Hàm trợ giúp: Tạo đối tượng PromptIR mẫu để phục vụ kiểm thử
 fn create_sample_v4_ir() -> PromptIR {
@@ -87,11 +87,11 @@ fn create_sample_v4_ir() -> PromptIR {
 fn test_semantic_dedup_and_provenance_merge() {
     let sample = create_sample_v4_ir();
     let (res, changes) = semantic_dedup::run_pass(sample);
-    
+
     // Kiểm tra đã lọc bớt 1 quy tắc trùng lặp (từ 3 quy tắc xuống 2 quy tắc)
     assert_eq!(res.atomic_rules.len(), 2);
     assert_eq!(changes.len(), 1);
-    
+
     // Kiểm tra vết nguồn gốc source_spans đã được hợp nhất từ cả 2 quy tắc trùng (INV-01)
     let merged_rule = res.atomic_rules.iter().find(|r| r.id == "R-1").unwrap();
     assert_eq!(merged_rule.source_spans.len(), 2);

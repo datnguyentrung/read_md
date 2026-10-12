@@ -1,15 +1,15 @@
 //! IR Validator (Công Cụ Kiểm Tra Chuẩn IR V4.1 & Bất Biến Lĩnh Vực)
-//! 
+//!
 //! THUỘC PHASE 6: KIỂM CHỨNG TĨNH (STATIC VERIFICATION L0)
 //! ========================================================================================
 //! Tác dụng: Kiểm tra tính hợp lệ của tệp JSON PromptIR theo đúng JSON Schema v4.1.
 //!           Đặc biệt kiểm tra Bất biến INV-01: Mọi quy tắc đang hoạt động (`status == "active"`)
 //!           bắt buộc phải có `source_spans` liên kết về đoạn prompt gốc.
 
+use prompt_compiler_optimizer::types::PromptIR;
 use std::env;
 use std::fs;
 use std::path::Path;
-use prompt_compiler_optimizer::types::PromptIR;
 
 /// Hàm `validate_ir`: Thực thi đọc tệp JSON IR và kiểm tra các điều kiện bất biến tĩnh
 fn validate_ir(ir_path: &Path) -> bool {
@@ -23,8 +23,11 @@ fn validate_ir(ir_path: &Path) -> bool {
                         return false;
                     }
                 }
-                println!("[+] Prompt IR hợp lệ theo chuẩn V4.1. Tổng số quy tắc: {}, Bất biến: {}", 
-                         ir.atomic_rules.len(), ir.invariants.len());
+                println!(
+                    "[+] Prompt IR hợp lệ theo chuẩn V4.1. Tổng số quy tắc: {}, Bất biến: {}",
+                    ir.atomic_rules.len(),
+                    ir.invariants.len()
+                );
                 true
             }
             Err(e) => {

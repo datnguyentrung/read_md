@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "PipelineReportV5",
+  "type": "object",
+  "required": ["schema_version", "timestamp", "source_hash", "candidate_hash", "verification_fingerprint", "profile_resolution", "goal_resolution", "planning", "pass_executions", "changes", "metrics_before", "metrics_after", "candidate", "verification"],
+  "properties": {
+    "schema_version": { "const": "5.0.0" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "source_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "candidate_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "verification_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "profile_resolution": { "type": "object" },
+    "goal_resolution": { "type": "object" },
+    "planning": { "type": "object" },
+    "pass_executions": { "type": "array" },
+    "changes": { "type": "array" },
+    "metrics_before": { "type": "object" },
+    "metrics_after": { "type": "object" },
+    "candidate": { "type": "string" },
+    "verification": { "$ref": "verification_report.schema.json" }
+  }
+}

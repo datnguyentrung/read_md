@@ -1,5 +1,5 @@
 //! Pass 4: Preserve and Structure Examples (Bảo Toàn & Chuẩn Hóa Ví Dụ - INV-09)
-//! 
+//!
 //! Đảm bảo 100% tất cả các ví dụ (few-shot, JSON shorthand payloads, câu thoại mẫu, bảng/biểu đồ)
 //! được giữ nguyên vẹn, gom nhóm rõ ràng mà không bị lược bỏ.
 
@@ -36,8 +36,18 @@ pub fn run_pass(mut ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>) {
             change_id: "CH-EX-PRESERVE-ALL".to_string(),
             pass: "preserve_and_structure_examples".to_string(),
             action: "preserve".to_string(),
-            source_rule_ids: ir.atomic_rules.iter().filter(|r| r.rule_type == "example").map(|r| r.id.clone()).collect(),
-            target_rule_ids: ir.atomic_rules.iter().filter(|r| r.rule_type == "example").map(|r| r.id.clone()).collect(),
+            source_rule_ids: ir
+                .atomic_rules
+                .iter()
+                .filter(|r| r.rule_type == "example")
+                .map(|r| r.id.clone())
+                .collect(),
+            target_rule_ids: ir
+                .atomic_rules
+                .iter()
+                .filter(|r| r.rule_type == "example")
+                .map(|r| r.id.clone())
+                .collect(),
             reason: "Toàn bộ ví dụ mẫu được bảo toàn nguyên vẹn 100% (INV-09 PASS)".to_string(),
             risk: "low".to_string(),
             before_hash: "examples_preserved".to_string(),

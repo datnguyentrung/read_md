@@ -3,7 +3,7 @@ name: prompt-compiler-optimizer
 description: Portable Agent Skill biên dịch và tối ưu hóa prompt dựa trên mô hình chuỗi công cụ compiler (Analyze -> IR -> Semantic Graph -> Optimization Passes -> Compile -> Adaptive Verification L0-L4 -> Release Gate). Bảo toàn 100% bất biến và ranh giới quyết định, không khóa host/model/framework.
 ---
 
-# Kỹ Năng Biên Dịch & Tối Ưu Hóa Prompt (V4.1 Portable Agent Skill)
+# Kỹ Năng Biên Dịch & Tối Ưu Hóa Prompt (V5.0 Portable Agent Skill)
 
 Một portable Agent Skill theo mô hình "chuỗi công cụ kiểu trình biên dịch" (compiler toolchain) giúp phân tích, chuẩn hóa sang Biểu Diễn Trung Gian (IR), tối ưu hóa có kiểm soát rủi ro, biên dịch kiến trúc và kiểm chứng thích nghi theo quyền truy cập hệ thống.
 
@@ -16,7 +16,9 @@ Một portable Agent Skill theo mô hình "chuỗi công cụ kiểu trình biê
 3. **Bảo toàn Invariants (INV-01 đến INV-09)**: Mọi quy tắc, ngoại lệ và toàn bộ các ví dụ minh họa bắt buộc phải được bảo toàn xuyên suốt các lượt tối ưu (Xem chi tiết tại `references/ir-spec.md`).
 4. **Bảo toàn 100% Ví dụ (Full Example Preservation - Zero Loss)**: Mọi ví dụ trong prompt gốc (few-shot examples, JSON shorthand payloads, mẫu hội thoại, mẫu bảng/biểu đồ, ví dụ xử lý tình huống) BẮT BUỘC phải được giữ lại đầy đủ 100%. Quá trình tối ưu chỉ tái cấu trúc và khử trùng lặp câu chữ mô tả, TUYỆT ĐỐI KHÔNG được xóa bỏ, cắt bớt hay làm mất ví dụ.
 5. **Kiểm chứng thích nghi theo bằng chứng (L0–L4)**: Không phụ thuộc vào việc có gọi được API thật hay không. Hệ thống tự chọn tầng kiểm thử phù hợp nhất từ L0 (Static) đến L4 (E2E) và ghi rõ `verification_debt`.
-6. **Xuất kết quả trực tiếp trong Chat (In-Chat Markdown Delivery)**: Toàn bộ báo cáo phân tích, chỉ số đo lường và Prompt ứng viên đã biên dịch được xuất TRỰC TIẾP trong đoạn chat trên màn hình dưới dạng Markdown. Prompt tối ưu BẮT BUỘC được đặt trong Fenced Code Block (```yaml hoặc ```markdown) để có sẵn nút Copy mặc định.
+6. **Xuất kết quả trực tiếp trong Chat (In-Chat Markdown Delivery)**: Mặc định chỉ xuất toàn bộ báo cáo và Prompt ứng viên ra stdout/chat dưới dạng Markdown; KHÔNG tạo thư mục hay file. Chỉ ghi artifact khi người dùng truyền `--output-dir`. Prompt tối ưu BẮT BUỘC nằm nguyên vẹn trong fenced code block an toàn, không dùng `...`.
+7. **Capability-driven & fail-closed**: Planner chỉ chọn capability đã triển khai và đủ dependency. Pass chưa triển khai phải là `UNSUPPORTED`; kiểm thử chưa chạy phải là `NOT_EXECUTED`; không được suy diễn thành công từ việc không phát hiện lỗi.
+8. **Tách bốn trạng thái**: Báo cáo phải phân biệt `Execution Status`, `Verification Status`, `Assurance Level` và `Release Decision`. `VERIFIED_STATIC` không tự động đồng nghĩa với `RELEASED`.
 
 ---
 
@@ -28,8 +30,8 @@ Skill được tổ chức phân lớp rõ ràng giữa **Nhận thức LLM (Cog
 | :--- | :--- | :--- |
 | **`prompts/`** *(LLM Sub-prompts)* | `prompts/semantic-parser.md`<br>`prompts/relation-classifier.md`<br>`prompts/generalizer.md`<br>`prompts/test-generator.md`<br>`prompts/test-interpreter.md` | Các chỉ dẫn chuẩn cho Sub-agent/LLM khi đóng vai trò Frontend Parser, phân loại quan hệ ngữ nghĩa, tổng quát hóa quy tắc và sinh test case kiểm chứng. |
 | **`references/`** *(Knowledge Base)* | `references/ir-spec.md`<br>`references/optimization-passes.md`<br>`references/release-policy.md`<br>`references/verification.md`<br>`references/prompt-profiles.md` | Bộ đặc tả tiêu chuẩn (Specification): 9 Invariants cốt lõi, ma trận rủi ro từng pass, chính sách Release Gate và hồ sơ kiến trúc cho từng mô hình LLM đích. |
-| **`schemas/`** *(JSON Schemas)* | `schemas/prompt_ir.schema.json`<br>`schemas/atomic_rule.schema.json`<br>`schemas/semantic_graph.schema.json`<br>`schemas/optimization_plan.schema.json`<br>`schemas/verification_report.schema.json` | Lược đồ JSON ràng buộc kiểu dữ liệu cho toàn bộ các cấu trúc dữ liệu trung gian trong compiler pipeline. |
-| **`scripts/`** *(Deterministic Engine)* | `scripts/types.rs`<br>`scripts/run_pipeline.rs`<br>`scripts/graph_analyzer.rs`<br>`scripts/ir_validator.rs`<br>`scripts/invariant_checker.rs`<br>`scripts/prompt_metrics.rs`<br>`scripts/regression_runner.rs` | Mã nguồn Rust thực thi tính toán tất định: xác thực cấu trúc, phân tích đồ thị, đo đạc token metrics và kiểm chứng bất biến. |
+| **`schemas/`** *(JSON Schemas)* | `schemas/prompt_ir.schema.json`<br>`schemas/atomic_rule.schema.json`<br>`schemas/semantic_graph.schema.json`<br>`schemas/optimization_plan.schema.json`<br>`schemas/pass_capability.schema.json`<br>`schemas/verification_report.schema.json`<br>`schemas/pipeline_report.schema.json` | Lược đồ JSON ràng buộc kiểu dữ liệu cho toàn bộ các cấu trúc dữ liệu trung gian trong compiler pipeline. |
+| **`scripts/`** *(Deterministic Engine)* | `scripts/types.rs`<br>`scripts/pipeline.rs`<br>`scripts/run_pipeline_v5.rs`<br>`scripts/graph_analyzer.rs`<br>`scripts/ir_validator.rs`<br>`scripts/invariant_checker.rs`<br>`scripts/prompt_metrics.rs`<br>`scripts/regression_runner_v5.rs` | Mã nguồn Rust thực thi tính toán tất định: xác thực cấu trúc, phân tích đồ thị, đo đạc token metrics và kiểm chứng bất biến. `Cargo.toml` ánh xạ các binary ổn định `run_pipeline` và `regression_runner` tới implementation V5. |
 | **`scripts/passes/`** *(Optimization Passes)* | `scripts/passes/normalize_terms.rs`<br>`scripts/passes/semantic_dedup.rs`<br>`scripts/passes/reorder_structure.rs`<br>`scripts/passes/preserve_and_structure_examples.rs`<br>`scripts/passes/generalization.rs`<br>`scripts/passes/decision_tree.rs`<br>`scripts/passes/modularization.rs`<br>`scripts/passes/externalization.rs` | Các thuật toán biến đổi IR chuyên biệt: chuẩn hóa từ đồng nghĩa, khử trùng lặp ngữ nghĩa, sắp xếp lại thứ tự ưu tiên, bảo toàn & cấu trúc hóa ví dụ. |
 | **`adapters/`** *(Host Contract)* | `adapters/host-contract.md` | Giao diện tương thích cho môi trường Agent runner bên ngoài (LangChain, LlamaIndex, Semantic Kernel). |
 
@@ -82,12 +84,16 @@ graph TD
   6. **Cây quyết định**: `decision_tree::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
   7. **Tách tri thức ngoài**: `externalization::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
   8. **Mô-đun hóa Runtime**: `modularization::run_pass(ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>)`
-- **Đầu ra**: `OptimizedIR` và `ChangeLog` (`optimized_ir.json` và `changes.json`).
+- **Đầu ra**: `OptimizedIR` và `ChangeLog` trong bộ nhớ. Chỉ ghi `optimized_ir.json`/`changes.json` khi người dùng yêu cầu artifact bằng `--output-dir`.
+
+Registry V5 là nguồn sự thật cho capability. Hiện `format_cleanup` là `IMPLEMENTED`; `normalize_terms`, `semantic_dedup`, `reorder_structure` và `preserve_and_structure_examples` là `PARTIAL`; `decision_tree`, `modularization`, `generalization` và `externalization` là `NOT_IMPLEMENTED`. Planner phải trả `UNSUPPORTED` hoặc kế hoạch `PARTIAL/BLOCKED` cho capability chưa sẵn sàng, không được giả lập kết quả.
 
 ### 📍 Phase 5: Biên Dịch Prompt Ứng Viên (Candidate Compilation)
 - **Mục đích**: Render cấu trúc IR tối ưu hóa thành định dạng Prompt Markdown/YAML theo đúng hồ sơ (Profile) của mô hình đích, đảm bảo toàn bộ khối ví dụ được render đầy đủ 100%.
 - **Tài nguyên sử dụng**: `references/prompt-profiles.md` (gpt-4o, claude-3-5-sonnet, gemini-1-5-pro, local-llm).
 - **Đầu ra**: Chuỗi văn bản Prompt ứng viên hoàn chỉnh.
+
+Candidate phải giữ cấu trúc XML/Markdown/JSON nguồn. Pass `format_cleanup` chạy cuối, chỉ chuẩn hóa newline, trailing whitespace và dòng trắng ngoài các example/verbatim/code-fence/schema payload được bảo vệ.
 
 ### 📍 Phase 6: Kiểm Chứng Thích Nghi & Báo Cáo Trực Tiếp Trong Chat (Verification & In-Chat Delivery)
 - **Mục đích**: Đánh giá toàn diện chất lượng prompt ứng viên qua các tầng L0–L4, kiểm tra Release Gate và xuất toàn bộ báo cáo Markdown chi tiết ngay trong phản hồi chat.
@@ -98,6 +104,7 @@ graph TD
   4. `critical_regressions == 0`
   5. `output_contract_preserved == true`
   6. `token_budget_ok == true`
+- **Minimum assurance mặc định**: `VERIFIED_DIFFERENTIAL`. Nếu chỉ L0 đạt, ghi `VERIFIED_STATIC`, đánh dấu L1-L4 chưa chạy là `NOT_EXECUTED`, và trả `BLOCKED_INSUFFICIENT_ASSURANCE` trừ khi có manual override đầy đủ audit trail.
 - **Quy cách trình bày báo cáo BẮT BUỘC trong Chat**:
   1. **Bảng Đo Lường Tổng Quan (Metrics Table)**: So sánh ký tự/token trước và sau, % giảm dung lượng, trạng thái bảo toàn Invariants và Examples.
   2. **Bảng Chi Tiết Biến Đổi & Lý Do Tối Ưu (Transformation ChangeLog Table - BẮT BUỘC)**:
@@ -121,7 +128,18 @@ Khi cần kiểm thử hoặc chạy các engine tính toán tất định trong
   ```bash
   cargo run --bin prompt_metrics -- --file <path-to-prompt.md>
   ```
-- **Chạy kiểm thử hồi quy vi sai (Differential Test)**:
+- **Chạy pipeline (stdout Markdown, không tạo artifact)**:
   ```bash
-  cargo run --bin regression_runner -- --original <baseline.md> --optimized <candidate.md>
+  cargo run --bin run_pipeline -- --input <prompt.md>
   ```
+- **JSON automation hoặc artifact opt-in**:
+  ```bash
+  cargo run --bin run_pipeline -- --input <prompt.md> --report-format json
+  cargo run --bin run_pipeline -- --input <prompt.md> --output-dir <audit-dir>
+  ```
+- **Các lựa chọn policy**: `--profile`, `--goal`, `--tier`, `--token-budget`, `--latency-budget-ms`, `--min-assurance`, `--runtime-capabilities`, `--static-evidence`, `--differential-evidence`. Override phát hành yêu cầu đồng thời `--override-release`, `--approved-by`, `--override-reason`, `--accepted-risk`.
+- **Nạp bằng chứng từ regression runner đã thực thi**:
+  ```bash
+  cargo run --bin regression_runner -- --evidence <differential-evidence.json>
+  ```
+  Không truyền `--evidence` trả `NOT_EXECUTED`; adapter không tự tạo kết quả PASS.

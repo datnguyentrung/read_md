@@ -1,15 +1,16 @@
 //! Invariant Checker (Công Cụ Kiểm Tra Bảo Toàn Bất Biến Trước Phát Hành)
-//! 
+//!
 //! THUỘC PHASE 6: CỔNG PHÁT HÀNH (RELEASE GATE VERIFICATION)
 //! ========================================================================================
-//! Tác dụng: So sánh PromptIR ban đầu với OptimizedIR để xác nhận 100% các bất biến cứng 
+//! Tác dụng: So sánh PromptIR ban đầu với OptimizedIR để xác nhận 100% các bất biến cứng
 //!           (Hard Invariants INV-01 -> INV-08) được giữ nguyên vẹn.
 //! Bắt buộc: Nếu có bất kỳ bất biến nào bị vi phạm, Release Gate sẽ trả về FAIL và chặn phát hành.
 
+use prompt_compiler_optimizer::pipeline::sha256_hex;
+use prompt_compiler_optimizer::types::{AtomicRule, PromptIR};
 use std::env;
 use std::fs;
 use std::path::Path;
-use prompt_compiler_optimizer::types::{AtomicRule, PromptIR};
 
 /// Hàm `check_invariants`: So sánh bản IR gốc và bản IR tối ưu để kiểm tra độ phủ bất biến 100%
 fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn std::error::Error>> {
@@ -24,17 +25,32 @@ fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn s
     // 1. Kiểm tra INV-01: Mọi quy tắc trong IR tối ưu đều phải có nguồn vết
     for rule in &opt_ir.atomic_rules {
         if rule.status == "active" && rule.source_spans.is_empty() {
-            eprintln!("[-] Vi phạm INV-01: Quy tắc đang hoạt động {} bị mất đoạn văn bản gốc truy vết!", rule.id);
+            eprintln!(
+                "[-] Vi phạm INV-01: Quy tắc đang hoạt động {} bị mất đoạn văn bản gốc truy vết!",
+                rule.id
+            );
             return Ok(false);
         }
     }
 
     // 2. Kiểm tra INV-09: Toàn bộ quy tắc dạng ví dụ (example) phải được bảo toàn 100%
-    let orig_examples: Vec<&AtomicRule> = orig_ir.atomic_rules.iter().filter(|r| r.rule_type == "example").collect();
+    let orig_examples: Vec<&AtomicRule> = orig_ir
+        .atomic_rules
+        .iter()
+        .filter(|r| r.rule_type == "example")
+        .collect();
     for ex in &orig_examples {
-        let found = opt_ir.atomic_rules.iter().any(|r| r.id == ex.id || (r.rule_type == "example" && r.status == "active"));
-        if !found {
-            eprintln!("[-] Vi phạm INV-09: Ví dụ {} bị thiếu trong IR tối ưu!", ex.id);
+        let found = opt_ir
+            .atomic_rules
+            .iter()
+            .find(|r| r.id == ex.id && r.rule_type == "example" && r.status == "active");
+        if found.map(|r| sha256_hex(r.semantics.as_bytes()))
+            != Some(sha256_hex(ex.semantics.as_bytes()))
+        {
+            eprintln!(
+                "[-] Vi phạm INV-09: Ví dụ {} bị thiếu trong IR tối ưu!",
+                ex.id
+            );
             return Ok(false);
         }
     }
@@ -42,9 +58,25 @@ fn check_invariants(orig_path: &Path, opt_path: &Path) -> Result<bool, Box<dyn s
     // 3. Kiểm tra các bất biến bắt buộc khác được liệt kê trong orig_ir.invariants
     for inv in &orig_ir.invariants {
         if inv.required {
-            let preserved = opt_ir.atomic_rules.iter().any(|r| r.id == inv.rule_ref || r.status == "active");
+            let original_rule = orig_ir.atomic_rules.iter().find(|r| r.id == inv.rule_ref);
+            let optimized_rule = opt_ir
+                .atomic_rules
+                .iter()
+                .find(|r| r.id == inv.rule_ref && r.status == "active");
+            let preserved = match (original_rule, optimized_rule) {
+                (Some(original), Some(optimized)) => {
+                    original.rule_type == optimized.rule_type
+                        && original.conditions == optimized.conditions
+                        && original.exceptions == optimized.exceptions
+                        && !optimized.source_spans.is_empty()
+                }
+                _ => false,
+            };
             if !preserved {
-                eprintln!("[-] Vi phạm Bất biến: Quy tắc bắt buộc {} cho bất biến {} bị thiếu!", inv.rule_ref, inv.id);
+                eprintln!(
+                    "[-] Vi phạm Bất biến: Quy tắc bắt buộc {} cho bất biến {} bị thiếu!",
+                    inv.rule_ref, inv.id
+                );
                 return Ok(false);
             }
         }
@@ -73,14 +105,14 @@ fn main() {
     }
 
     match (orig_opt, opt_opt) {
-        (Some(orig), Some(opt)) => {
-            match check_invariants(Path::new(&orig), Path::new(&opt)) {
-                Ok(true) => std::process::exit(0),
-                _ => std::process::exit(1),
-            }
-        }
+        (Some(orig), Some(opt)) => match check_invariants(Path::new(&orig), Path::new(&opt)) {
+            Ok(true) => std::process::exit(0),
+            _ => std::process::exit(1),
+        },
         _ => {
-            eprintln!("Cú pháp: invariant_checker --original-ir <file_goc> --optimized-ir <file_toi_uu>");
+            eprintln!(
+                "Cú pháp: invariant_checker --original-ir <file_goc> --optimized-ir <file_toi_uu>"
+            );
             std::process::exit(1);
         }
     }

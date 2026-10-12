@@ -159,6 +159,10 @@ pub struct GraphEdge {
 pub struct SemanticGraph {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
+    #[serde(default)]
+    pub analysis_status: String,
+    #[serde(default)]
+    pub unknown_pairs: usize,
 }
 
 // ============================================================================
@@ -177,6 +181,10 @@ pub struct PassSpec {
     pub parameters: Option<HashMap<String, serde_json::Value>>,
     #[serde(default)]
     pub rationale: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    #[serde(default)]
+    pub implementation_status: Option<String>,
 }
 
 /// Kế hoạch Tối ưu tổng thể (OptimizationPlan)
@@ -190,6 +198,24 @@ pub struct OptimizationPlan {
     pub hard_invariants: Vec<String>,
     #[serde(default)]
     pub token_target: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub requested_goal: Option<String>,
+    #[serde(default)]
+    pub inferred_goal: Option<String>,
+    #[serde(default)]
+    pub goal_resolution_source: Option<String>,
+    #[serde(default)]
+    pub requested_tier: Option<String>,
+    #[serde(default)]
+    pub selected_tier: Option<String>,
+    #[serde(default)]
+    pub missing_capabilities: Vec<String>,
+    #[serde(default)]
+    pub expected_benefits: Vec<String>,
+    #[serde(default)]
+    pub semantic_risks: Vec<String>,
+    #[serde(default)]
+    pub keep_reason: Option<String>,
 }
 
 fn default_plan_status() -> String {
@@ -221,18 +247,142 @@ pub struct ChangeLogEntry {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VerificationReport {
     pub timestamp: String,
-    pub status: String, // RELEASED, NEEDS_REVIEW, UNVERIFIED, ROLLED_BACK
-    pub assurance_level: String, // VERIFIED_STATIC, VERIFIED_OFFLINE, VERIFIED_CONTRACT, VERIFIED_MOCK, VERIFIED_E2E
+    pub status: String, // Legacy field. Use verification_status and release_decision in V5.
+    pub assurance_level: String, // VERIFIED_STATIC, VERIFIED_DIFFERENTIAL, VERIFIED_CONTRACT, VERIFIED_MOCK, VERIFIED_E2E
     pub verification_scope: String,
     #[serde(default)]
     pub verification_debt: Vec<String>,
-    pub static_gate: String, // PASS, FAIL, NEEDS_REVIEW
+    pub static_gate: String,   // PASS, FAIL, NEEDS_REVIEW
     pub behavior_gate: String, // PASS, FAIL, SKIPPED, NEEDS_REVIEW
     pub metrics_delta: HashMap<String, serde_json::Value>,
     #[serde(default)]
     pub invariants: Vec<serde_json::Value>,
     #[serde(default)]
     pub test_results: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub verification_status: String,
+    #[serde(default)]
+    pub release_decision: String,
+    #[serde(default)]
+    pub layers: Vec<VerificationLayerResult>,
+    #[serde(default)]
+    pub evaluation_debt: Vec<String>,
+    #[serde(default)]
+    pub manual_override: Option<ManualOverrideAudit>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CapabilityState {
+    Supported,
+    Unsupported,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ImplementationStatus {
+    Implemented,
+    Partial,
+    NotImplemented,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PassExecutionStatus {
+    Applied,
+    SkippedNotApplicable,
+    Unsupported,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum VerificationStatus {
+    Pass,
+    Fail,
+    NotExecuted,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AssuranceLevel {
+    Unverified,
+    VerifiedStatic,
+    #[serde(alias = "VERIFIED_OFFLINE")]
+    VerifiedDifferential,
+    VerifiedContract,
+    VerifiedMock,
+    VerifiedE2e,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ReleaseDecision {
+    Released,
+    NeedsReview,
+    BlockedInsufficientAssurance,
+    BlockedUnsupported,
+    Failed,
+    OverrideReleased,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ProfileResolutionStatus {
+    Explicit,
+    Detected,
+    Partial,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PassCapability {
+    pub name: String,
+    pub capability: String,
+    pub implementation_status: ImplementationStatus,
+    pub preconditions: Vec<String>,
+    pub dependencies: Vec<String>,
+    pub input_contract: String,
+    pub output_contract: String,
+    pub postconditions: Vec<String>,
+    pub verification_requirements: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PassExecutionRecord {
+    pub name: String,
+    pub status: PassExecutionStatus,
+    pub changed: bool,
+    pub reason: String,
+    pub validation: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct VerificationLayerResult {
+    pub layer: String,
+    pub status: VerificationStatus,
+    pub scope: String,
+    pub reason: String,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ManualOverrideAudit {
+    pub approver: String,
+    pub reason: String,
+    pub accepted_risks: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ProfileResolution {
+    pub status: ProfileResolutionStatus,
+    pub profile: String,
+    pub evidence: Vec<String>,
+    pub capabilities: HashMap<String, CapabilityState>,
 }
 
 /// Gói Phát hành Hoàn chỉnh (ReleaseBundle) - Kết quả cuối cùng của toàn bộ pipeline

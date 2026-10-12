@@ -3,11 +3,11 @@
   "$id": "OptimizationPlan",
   "title": "OptimizationPlan",
   "type": "object",
-  "required": ["decision", "passes", "hard_invariants"],
+  "required": ["status", "decision", "passes", "hard_invariants", "selected_tier"],
   "properties": {
     "status": {
       "type": "string",
-      "enum": ["PLANNED", "NEEDS_REVIEW", "EXECUTING", "COMPLETED", "ROLLED_BACK"],
+      "enum": ["PLANNED", "APPLIED", "PARTIAL", "BLOCKED", "FAILED", "COMPLETED", "ROLLED_BACK"],
       "default": "PLANNED"
     },
     "decision": {
@@ -26,7 +26,9 @@
           "risk": { "type": "string", "enum": ["low", "medium", "high", "operational_high"] },
           "order": { "type": "integer" },
           "parameters": { "type": "object" },
-          "rationale": { "type": "string" }
+          "rationale": { "type": "string" },
+          "capability": { "type": ["string", "null"] },
+          "implementation_status": { "type": ["string", "null"], "enum": ["IMPLEMENTED", "PARTIAL", "NOT_IMPLEMENTED", null] }
         }
       }
     },
@@ -35,6 +37,15 @@
       "items": { "type": "string" },
       "description": "Mandatory invariants that must be preserved (100% coverage required)"
     },
+    "requested_goal": { "type": ["string", "null"] },
+    "inferred_goal": { "type": ["string", "null"] },
+    "goal_resolution_source": { "type": ["string", "null"] },
+    "requested_tier": { "type": ["string", "null"] },
+    "selected_tier": { "type": ["string", "null"] },
+    "missing_capabilities": { "type": "array", "items": { "type": "string" } },
+    "expected_benefits": { "type": "array", "items": { "type": "string" } },
+    "semantic_risks": { "type": "array", "items": { "type": "string" } },
+    "keep_reason": { "type": ["string", "null"] },
     "token_target": {
       "type": "object",
       "properties": {

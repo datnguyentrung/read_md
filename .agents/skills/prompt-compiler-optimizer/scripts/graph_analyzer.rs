@@ -1,9 +1,9 @@
 //! Graph Analyzer (Công Cụ Phân Tích Đồ Thị Ngữ Nghĩa V4.1)
-//! 
+//!
 //! VỊ TRÍ TRONG HỆ THỐNG (COMPILER PIPELINE):
 //! ========================================================================================
 //! Phase 3: Phân tích Đồ thị Ngữ nghĩa & Đánh giá Chất lượng (Semantic Graph & Audit Analysis)
-//! 
+//!
 //! MỤC ĐÍCH NGHIỆP VỤ & KỸ THUẬT:
 //! 1. Chuyển đổi tập hợp các quy tắc nguyên tử (`AtomicRule`) từ `PromptIR` thành mạng lưới đồ thị (`SemanticGraph`).
 //! 2. Tạo các Nút (`GraphNode`) chứa định danh, nhãn rút gọn (tránh lỗi cắt chuỗi UTF-8) và loại quy tắc.
@@ -11,16 +11,16 @@
 //!    `depends_on`, `refines`, `triggers`, `example_of`, `exception_to`.
 //! 4. Cung cấp dữ liệu nền tảng cho Phase 4 để phát hiện trùng lặp (`same_as`) hoặc xung đột nghiêm trọng (`conflicts_with`).
 
+use prompt_compiler_optimizer::types::{GraphEdge, GraphNode, PromptIR, SemanticGraph};
 use std::env;
 use std::fs;
 use std::path::Path;
-use prompt_compiler_optimizer::types::{GraphNode, PromptIR, SemanticGraph};
 
 /// Phân tích tệp `prompt_ir.json` và xây dựng cấu trúc đồ thị ngữ nghĩa `SemanticGraph`.
-/// 
+///
 /// # Tham số
 /// * `ir_path`: Đường dẫn hợp lệ tới tệp JSON lưu trữ PromptIR.
-/// 
+///
 /// # Luồng xử lý
 /// 1. Đọc nội dung tệp JSON từ đĩa thông qua `fs::read_to_string`.
 /// 2. Giải mã (deserialize) chuỗi JSON thành struct `PromptIR` với Serde.
@@ -29,7 +29,7 @@ use prompt_compiler_optimizer::types::{GraphNode, PromptIR, SemanticGraph};
 ///    - Cắt an toàn 30 ký tự đầu của `semantics` làm nhãn (`label`), bảo toàn ranh giới UTF-8 bằng `chars().take(30)`.
 ///    - Gán `category` từ `rule_type` của quy tắc.
 /// 4. Đóng gói danh sách nút và tập cạnh thành `SemanticGraph`.
-/// 
+///
 /// # Trả về
 /// * `Ok(SemanticGraph)` nếu đọc tệp và phân tích thành công.
 /// * `Err(Box<dyn std::error::Error>)` nếu tệp không tồn tại, lỗi I/O hoặc định dạng JSON không hợp lệ.
@@ -41,10 +41,13 @@ fn analyze_graph(ir_path: &Path) -> Result<SemanticGraph, Box<dyn std::error::Er
     // [Bước 2]: Giải mã chuỗi JSON thành đối tượng cấu trúc PromptIR
     // Đảm bảo dữ liệu tuân thủ chuẩn lược đồ prompt_ir.schema.json
     let ir: PromptIR = serde_json::from_str(&content)?;
-    
+
     // [Bước 3]: Ghi nhật ký tiến trình ra console để theo dõi (Observability)
-    println!("[*] Đang xây dựng đồ thị ngữ nghĩa cho {} quy tắc nguyên tử...", ir.atomic_rules.len());
-    
+    println!(
+        "[*] Đang xây dựng đồ thị ngữ nghĩa cho {} quy tắc nguyên tử...",
+        ir.atomic_rules.len()
+    );
+
     // [Bước 4]: Duyệt tuần tự tập atomic_rules và ánh xạ sang GraphNode
     // - Sử dụng iterator mapping `.iter().map(...)` để tối ưu hiệu năng bộ nhớ
     // - Sử dụng `chars().take(30).collect()` thay vì cắt byte slice `[..30]` để tránh panic khi gặp ký tự tiếng Việt đa byte
@@ -61,14 +64,69 @@ fn analyze_graph(ir_path: &Path) -> Result<SemanticGraph, Box<dyn std::error::Er
 
     // [Bước 5]: Đóng gói đồ thị và trả về kết quả
     // Tập cạnh (edges) khởi tạo rỗng và sẽ được bổ sung bởi relation-classifier ở các lượt phân tích nâng cao
+    let mut edges = Vec::new();
+    let mut unknown_pairs = 0usize;
+    for left in 0..ir.atomic_rules.len() {
+        for right in (left + 1)..ir.atomic_rules.len() {
+            let a = &ir.atomic_rules[left];
+            let b = &ir.atomic_rules[right];
+            let normalize = |value: &str| {
+                value
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .to_lowercase()
+            };
+            if normalize(&a.semantics) == normalize(&b.semantics)
+                && a.scope == b.scope
+                && a.conditions == b.conditions
+                && a.exceptions == b.exceptions
+            {
+                edges.push(GraphEdge {
+                    source: a.id.clone(),
+                    target: b.id.clone(),
+                    relation: "same_as".to_string(),
+                    weight: Some(1.0),
+                    reason: Some(
+                        "deterministic normalized equality with identical boundaries".to_string(),
+                    ),
+                });
+            } else if a.exceptions.iter().any(|value| value.contains(&b.id)) {
+                edges.push(GraphEdge {
+                    source: a.id.clone(),
+                    target: b.id.clone(),
+                    relation: "exception_to".to_string(),
+                    weight: Some(1.0),
+                    reason: Some("explicit rule-id reference in exception".to_string()),
+                });
+            } else if b.exceptions.iter().any(|value| value.contains(&a.id)) {
+                edges.push(GraphEdge {
+                    source: b.id.clone(),
+                    target: a.id.clone(),
+                    relation: "exception_to".to_string(),
+                    weight: Some(1.0),
+                    reason: Some("explicit rule-id reference in exception".to_string()),
+                });
+            } else {
+                unknown_pairs += 1;
+            }
+        }
+    }
     Ok(SemanticGraph {
         nodes,
-        edges: vec![],
+        edges,
+        analysis_status: if unknown_pairs == 0 {
+            "COMPLETE"
+        } else {
+            "PARTIAL_UNKNOWN_RELATIONS"
+        }
+        .to_string(),
+        unknown_pairs,
     })
 }
 
 /// Điểm bắt đầu của công cụ dòng lệnh (CLI binary) `graph_analyzer`.
-/// 
+///
 /// # Luồng thực thi dòng lệnh
 /// 1. Thu thập các tham số truyền vào từ `std::env::args()`.
 /// 2. Bóc tách cờ `--ir <path>` để lấy đường dẫn tệp `prompt_ir.json`.

@@ -1,5 +1,5 @@
 //! Pass 2: Khử Trùng Ngữ Nghĩa (Semantic Deduplication Pass)
-//! 
+//!
 //! THUỘC PHASE 4: TỐI ƯU HÓA RỦI RO THẤP (LOW-RISK OPTIMIZATION PASS)
 //! ========================================================================================
 //! MỤC ĐÍCH KĨ THUẬT & BẢO TOÀN BẤT BIẾN:
@@ -8,11 +8,12 @@
 //!    (đoạn văn bản gốc) của B sẽ được cộng nối (extend) vào A. Không được làm mất vết nguồn gốc!
 //! 3. BẢO TOÀN INV-02 (Nhật ký thay đổi): Mọi hành động gộp quy tắc (`action: "merge"`) được ghi nhận chi tiết vào `changes.json`.
 
-use std::collections::HashSet;
+use crate::pipeline::sha256_hex;
 use crate::types::{AtomicRule, ChangeLogEntry, PromptIR};
+use std::collections::HashSet;
 
 /// Thực thi lượt tối ưu khử trùng lặp ngữ nghĩa trên đối tượng `PromptIR`.
-/// 
+///
 /// # Thuật toán & Quy trình xử lý
 /// 1. Khởi tạo `HashSet` để lưu các chuỗi ngữ nghĩa đã được chuẩn hóa (loại bỏ khoảng trắng thừa, hạ chữ thường).
 /// 2. Khởi tạo danh sách `deduped_rules` chứa các quy tắc giữ lại và `changes` để lưu nhật ký.
@@ -42,7 +43,10 @@ pub fn run_pass(mut ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>) {
             deduped_rules.push(rule);
         } else {
             // [Trường hợp 2]: Quy tắc bị trùng lặp ngữ nghĩa -> Hợp nhất Vết Nguồn Gốc (INV-01)
-            if let Some(existing) = deduped_rules.iter_mut().find(|r| r.semantics.trim().to_lowercase() == normalized) {
+            if let Some(existing) = deduped_rules
+                .iter_mut()
+                .find(|r| r.semantics.trim().to_lowercase() == normalized)
+            {
                 // HỢP NHẤT VẾT NGUỒN (INV-01): Đảm bảo các đoạn text gốc từ cả 2 vị trí trùng lặp đều được giữ lại
                 existing.source_spans.extend(rule.source_spans.clone());
 
@@ -55,8 +59,8 @@ pub fn run_pass(mut ir: PromptIR) -> (PromptIR, Vec<ChangeLogEntry>) {
                     target_rule_ids: vec![existing.id.clone()],
                     reason: "Phát hiện nội dung trùng lặp ngữ nghĩa; tiến hành gộp quy tắc và hợp nhất vị trí nguồn gốc (Bảo toàn INV-01)".to_string(),
                     risk: "low".to_string(),
-                    before_hash: format!("{:x}", rule.semantics.len()),
-                    after_hash: format!("{:x}", existing.semantics.len()),
+                    before_hash: sha256_hex(rule.semantics.as_bytes()),
+                    after_hash: sha256_hex(existing.semantics.as_bytes()),
                     provenance_preserved: true,
                     verification_refs: vec![],
                 });

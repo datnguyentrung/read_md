@@ -1,6 +1,6 @@
 [package]
 name = "prompt-compiler-optimizer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -13,7 +13,7 @@ path = "scripts/lib.rs"
 
 [[bin]]
 name = "run_pipeline"
-path = "scripts/run_pipeline.rs"
+path = "scripts/run_pipeline_v5.rs"
 
 [[bin]]
 name = "ir_validator"
@@ -33,11 +33,7 @@ path = "scripts/invariant_checker.rs"
 
 [[bin]]
 name = "regression_runner"
-path = "scripts/regression_runner.rs"
-
-[[bin]]
-name = "artifact_manager"
-path = "scripts/artifact_manager.rs"
+path = "scripts/regression_runner_v5.rs"
 
 [[test]]
 name = "test_pipeline"

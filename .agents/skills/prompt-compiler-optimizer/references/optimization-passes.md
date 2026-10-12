@@ -1,4 +1,8 @@
-# Tài Liệu Các Lượt Tối Ưu Hóa (Optimization Passes V4.1)
+# Tài Liệu Các Lượt Tối Ưu Hóa (Optimization Passes V5.0)
+
+Mỗi pass khai báo capability contract và trả `APPLIED`, `SKIPPED_NOT_APPLICABLE`, `UNSUPPORTED` hoặc `FAILED`. Trả IR nguyên trạng không được coi là thành công nếu thiếu capability; chỉ được `SKIPPED_NOT_APPLICABLE` khi postcondition chứng minh transformation không cần thiết.
+
+Registry hiện tại: `format_cleanup=IMPLEMENTED`; `normalize_terms`, `semantic_dedup`, `reorder_structure`, `preserve_and_structure_examples=PARTIAL`; `decision_tree`, `generalization`, `modularization`, `externalization=NOT_IMPLEMENTED`.
 
 ## 1. Phân Hạng Rủi Ro & Chính Sách Mặc Định
 
@@ -31,4 +35,3 @@ Dưới đây là chuỗi hàm pass được Pass Dispatcher kích hoạt cho t�
 | **`MAJOR`** | 1. `generalization::run_pass`<br>2. `semantic_dedup::run_pass`<br>3. `reorder_structure::run_pass`<br>4. `preserve_and_structure_examples::run_pass` | Bắt buộc chạy kiểm thử vi sai (differential testing) và bảo toàn 100% ví dụ. |
 | **`EXTERNALIZE`** | 1. `externalization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` | Bóc tách khối tri thức lớn sang RAG/Reference docs. |
 | **`MODULARIZE`** | 1. `modularization::run_pass`<br>2. `reorder_structure::run_pass`<br>3. `preserve_and_structure_examples::run_pass` | Bóc tách Core Prompt + Dynamic Domain Modules. |
-
